@@ -1,0 +1,83 @@
+# git-cliff configuration for clai
+# https://git-cliff.org/docs/configuration
+
+[remote.github]
+owner = "alexey1312"
+repo = "clai"
+
+[changelog]
+# Template for the changelog header
+header = """
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+"""
+# Template for the changelog body
+body = """
+{% if version %}\
+    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+    ## [Unreleased]
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+    ### {{ group | striptags | trim | upper_first }}
+    {% for commit in commits %}
+        - {% if commit.scope %}**{{ commit.scope }}**: {% endif %}\
+            {{ commit.message | upper_first }}\
+            {% if commit.remote.username %} by @{{ commit.remote.username }}{% endif %}\
+            {% if commit.remote.pr_number %} in [#{{ commit.remote.pr_number }}](https://github.com/alexey1312/clai/pull/{{ commit.remote.pr_number }}){% endif %}
+    {% endfor %}
+{% endfor %}\n
+"""
+# Template for the changelog footer
+footer = """
+"""
+# Remove leading and trailing whitespace
+trim = true
+
+[git]
+# Parse commits according to conventional commits specification
+conventional_commits = true
+# Filter out commits that don't match conventional commits
+filter_unconventional = false
+# Process each line of a commit as an individual commit
+split_commits = false
+# Regex for preprocessing the commit messages
+commit_preprocessors = [
+    # Remove issue numbers from commit messages
+    { pattern = '\((\w+\s)?#([0-9]+)\)', replace = "" },
+]
+# Regex for parsing and grouping commits
+commit_parsers = [
+    { message = "^feat", group = "Features" },
+    { message = "^fix", group = "Bug Fixes" },
+    { message = "^doc", group = "Documentation" },
+    { message = "^perf", group = "Performance" },
+    { message = "^refactor", group = "Refactor" },
+    { message = "^style", group = "Styling" },
+    { message = "^test", group = "Testing" },
+    { message = "^chore\\(release\\)", skip = true },
+    { message = "^chore\\(deps\\)", skip = true },
+    { message = "^chore\\(pr\\)", skip = true },
+    { message = "^chore\\(pull\\)", skip = true },
+    { message = "^chore|^ci", group = "Miscellaneous Tasks" },
+    { body = ".*security", group = "Security" },
+    { message = "^revert", group = "Revert" },
+    # Catch-all for non-conventional commits
+    { message = ".*", group = "Other" },
+]
+# Protect breaking changes from being skipped
+protect_breaking_commits = false
+# Filter commits by glob pattern
+filter_commits = false
+# Regex for matching git tags
+tag_pattern = "[0-9]+\\.[0-9]+\\.[0-9]+"
+# Regex for skipping tags
+skip_tags = ""
+# Regex for ignoring tags
+ignore_tags = ""
+# Sort commits inside sections by oldest/newest order
+topo_order = false
+# Sort commits inside sections by specified order
+sort_commits = "oldest"

@@ -1,0 +1,80 @@
+[settings]
+lockfile = false
+experimental = true
+disable_tools = ["python"]
+
+[tools]
+pre-commit = "4.5.0"
+swiftformat = "0.58.7"
+swiftlint = "0.62.2"
+git-cliff = "2.10.1"
+xcsift = "1.0.15"
+
+[tasks.build]
+description = "Build debug"
+run = "swift build 2>&1 | xcsift -w -f toon --toon-key-folding safe"
+
+[tasks."build:release"]
+description = "Build release"
+run = """
+xcodebuild -scheme clai -configuration Release \
+  -destination 'platform=macOS' \
+  -derivedDataPath .build/xcode \
+  -skipMacroValidation \
+  build 2>&1 | xcsift -w -f toon --toon-key-folding safe
+"""
+
+[tasks.test]
+description = "Run tests"
+run = "swift test 2>&1 | xcsift -w -f toon --toon-key-folding safe"
+
+[tasks."test:filter"]
+description = "Run tests with filter (usage: mise run test:filter TestName)"
+run = "swift test --filter {{arg(name='filter')}} 2>&1 | xcsift -w -f toon --toon-key-folding safe"
+
+[tasks.lint]
+description = "SwiftLint strict"
+run = "swiftlint lint --strict Sources 2>&1 | xcsift -f toon --toon-key-folding safe"
+
+[tasks.format]
+description = "Format Swift code"
+run = "swiftformat Sources"
+
+[tasks."format:check"]
+description = "Check formatting (CI)"
+run = "swiftformat Sources --lint"
+
+[tasks.setup]
+description = "Setup development environment"
+run = """
+pre-commit install
+pre-commit install --hook-type commit-msg
+pre-commit install-hooks
+"""
+
+[tasks.pre-commit]
+description = "Run pre-commit on all files"
+run = "pre-commit run --all-files"
+
+[tasks.clean]
+description = "Clean build artifacts"
+run = "swift package clean && rm -rf .build/xcode .build/release .build/debug DerivedData"
+
+[tasks.check]
+description = "Run lint and format check in parallel"
+depends = ["lint", "format:check"]
+
+[tasks.ci]
+description = "Full CI pipeline: build, then lint + format + test in parallel"
+run = [
+  { task = "build" },
+  { tasks = ["lint", "format:check", "test"] },
+]
+
+[tasks.changelog]
+description = "Generate CHANGELOG.md"
+run = "git-cliff -o CHANGELOG.md"
+
+[tasks."changelog:unreleased"]
+description = "Preview unreleased changes"
+run = "git-cliff --unreleased"

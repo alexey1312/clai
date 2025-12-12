@@ -1,0 +1,160 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    strategy:
+      matrix:
+        include:
+          - os: macos-15
+            platform: macos
+            archive-name: clai-macos
+          - os: ubuntu-latest
+            platform: linux-x64
+            build-path: x86_64-unknown-linux-gnu/release
+            archive-name: clai-linux-x64
+            container: swift:6.1
+
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Select Xcode 16.4 (macOS)
+        if: matrix.platform == 'macos'
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+
+      - name: Cache SPM dependencies (macOS)
+        if: matrix.platform == 'macos'
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Set version from tag
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          FILE="Sources/clai/Clai.swift"
+          if [ "${{ matrix.platform }}" = "macos" ]; then
+            sed -i '' "s/version: \".*\"/version: \"$VERSION\"/" "$FILE"
+          else
+            sed -i "s/version: \".*\"/version: \"$VERSION\"/" "$FILE"
+          fi
+
+      - name: Build release binary (macOS)
+        if: matrix.platform == 'macos'
+        run: |
+          xcodebuild -scheme clai -configuration Release \
+            -destination 'platform=macOS' \
+            -derivedDataPath .build/xcode \
+            -skipMacroValidation \
+            build
+
+      - name: Build release binary (Linux)
+        if: matrix.platform == 'linux-x64'
+        run: swift build -c release
+        continue-on-error: true  # May fail due to MLX trait (macOS-only)
+
+      - name: Create release archive (macOS)
+        if: matrix.platform == 'macos'
+        run: |
+          mkdir -p dist
+          cp .build/xcode/Build/Products/Release/clai dist/clai
+          cp LICENSE dist/
+          cd dist && zip -r ../${{ matrix.archive-name }}.zip .
+
+      - name: Create release archive (Linux)
+        if: matrix.platform == 'linux-x64'
+        continue-on-error: true
+        run: |
+          mkdir -p dist
+          cp .build/${{ matrix.build-path }}/clai dist/clai
+          cp LICENSE dist/
+          tar -czf ${{ matrix.archive-name }}.tar.gz -C dist .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.archive-name }}
+          path: |
+            ${{ matrix.archive-name }}.zip
+            ${{ matrix.archive-name }}.tar.gz
+          if-no-files-found: ignore
+
+  update-version:
+    name: Update Version and Changelog
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update version in main branch
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          FILE="Sources/clai/Clai.swift"
+          sed -i "s/version: \".*\"/version: \"$VERSION\"/" "$FILE"
+
+      - name: Update CHANGELOG.md
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --output CHANGELOG.md
+        env:
+          GITHUB_REPO: ${{ github.repository }}
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Sources/clai/Clai.swift CHANGELOG.md
+          git diff --staged --quiet || git commit -m "chore(release): bump version to ${GITHUB_REF#refs/tags/v}"
+          git push origin main
+
+  release:
+    name: Create Release
+    needs: [build, update-version]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Generate release notes
+        id: changelog
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          GITHUB_REPO: ${{ github.repository }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: ${{ steps.changelog.outputs.content }}
+          files: |
+            artifacts/clai-macos/clai-macos.zip
+            artifacts/clai-linux-x64/clai-linux-x64.tar.gz

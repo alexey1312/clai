@@ -1,0 +1,246 @@
+.\" Man page for clai - LLM-powered CLI help assistant
+.\" Generated for clai version 0.1.0
+.TH CLAI 1 "December 2025" "clai 0.1.0" "User Commands"
+.SH NAME
+clai \- LLM-powered CLI help assistant
+.SH SYNOPSIS
+.B clai
+.RI [ command ]
+.RI [ options ]
+.RI [ arguments ]
+.SH DESCRIPTION
+.B clai
+is an LLM-powered command-line help assistant that explains command-line tools
+in plain language using local or cloud language models.
+.PP
+Local-first and privacy-friendly,
+.B clai
+prefers on-device models when available and falls back to cloud APIs only when necessary.
+.SH COMMANDS
+.TP
+.B explain \fIcommand\fR
+Explain a CLI command in plain language. Provides a plain-language explanation
+of what a command does, including common use cases and potential gotchas.
+This is the default command if no subcommand is specified.
+.TP
+.B suggest \fItask\fR
+Suggest CLI commands for a natural language task description.
+Describe what you want to accomplish and get command suggestions.
+.TP
+.B examples \fIcommand\fR
+Show practical, copy-pasteable usage examples for a command.
+.TP
+.B man \fIcommand\fR
+Summarize a man page in plain language, highlighting the most commonly used options.
+.TP
+.B setup
+Set up clai and download required models. Pre-downloads MLX models and verifies
+provider configuration. Run this to prepare clai for offline use.
+.TP
+.B completions \fIshell\fR
+Generate shell completion scripts for zsh, bash, or fish.
+.SH OPTIONS
+.TP
+.BR \-\-provider " " \fIprovider\fR
+Force a specific provider. Available providers: foundation, mlx, ollama, anthropic, openai.
+.TP
+.B \-\-json
+Output response in JSON format for scripting and automation.
+.TP
+.B \-\-verbose
+Show detailed diagnostic output including provider selection and timing information.
+.TP
+.B \-\-stream
+Stream response tokens as they arrive, useful for slow cloud providers.
+.TP
+.B \-\-no\-cache
+Bypass the response cache and force a fresh LLM query.
+.TP
+.B \-\-version
+Print version information and exit.
+.TP
+.BR \-h ", " \-\-help
+Print help information and exit.
+.SH SETUP OPTIONS
+These options are specific to the
+.B setup
+command:
+.TP
+.B \-\-small
+Download a smaller model (~400MB instead of ~2.5GB).
+.TP
+.B \-\-verbose
+Show detailed progress during setup.
+.SH PROVIDERS
+.B clai
+automatically selects the best available provider in this order:
+.TP
+.B 1. FoundationModel
+Apple's on-device model (macOS 26+). Free, offline, private.
+.TP
+.B 2. MLX
+Local inference on Apple Silicon via MLXLLM. Auto-downloads Qwen3-4B (~2.5GB)
+from HuggingFace on first use.
+.TP
+.B 3. Ollama
+Local inference server. Requires separate installation and a pulled model
+(prefers llama3.2 or qwen3).
+.TP
+.B 4. Anthropic
+Claude API (uses claude-3-5-haiku). Requires ANTHROPIC_API_KEY environment variable.
+.TP
+.B 5. OpenAI
+GPT API (uses gpt-4o-mini). Requires OPENAI_API_KEY environment variable.
+.SH CONFIGURATION
+.B clai
+can be configured via
+.IR ~/.config/clai/config.yaml .
+.PP
+Example configuration:
+.PP
+.RS
+.nf
+provider:
+  default: ollama
+  fallback:
+    - foundation
+    - mlx
+    - ollama
+    - anthropic
+    - openai
+
+ollama:
+  model: llama3.2
+  host: http://localhost:11434
+
+anthropic:
+  api_key_env: ANTHROPIC_API_KEY
+  model: claude-3-5-haiku-20241022
+
+openai:
+  api_key_env: OPENAI_API_KEY
+  model: gpt-4o-mini
+
+cache:
+  enabled: true
+  ttl_days: 7
+.fi
+.RE
+.SH ENVIRONMENT
+.TP
+.B CLAI_PROVIDER
+Override the default provider.
+.TP
+.B CLAI_MLX_MODEL
+Override the MLX model identifier.
+.TP
+.B CLAI_OLLAMA_MODEL
+Override the Ollama model name.
+.TP
+.B CLAI_OLLAMA_HOST
+Override the Ollama server host URL.
+.TP
+.B CLAI_CACHE_ENABLED
+Enable or disable response caching (true/false).
+.TP
+.B ANTHROPIC_API_KEY
+API key for Anthropic Claude provider.
+.TP
+.B OPENAI_API_KEY
+API key for OpenAI GPT provider.
+.SH FILES
+.TP
+.I ~/.config/clai/config.yaml
+User configuration file.
+.TP
+.I ~/Library/Caches/clai/responses.db
+Response cache database (SQLite).
+.TP
+.I ~/.cache/huggingface/
+MLX model cache directory.
+.SH EXAMPLES
+Explain a command:
+.PP
+.RS
+.nf
+clai explain "git rebase -i HEAD~3"
+clai explain "find . -name '*.swift' -exec rm {} \\;"
+.fi
+.RE
+.PP
+Get command suggestions:
+.PP
+.RS
+.nf
+clai suggest "find files larger than 100MB"
+clai suggest "compress a folder into tar.gz"
+.fi
+.RE
+.PP
+Show practical examples:
+.PP
+.RS
+.nf
+clai examples tar
+clai examples rsync
+.fi
+.RE
+.PP
+Summarize a man page:
+.PP
+.RS
+.nf
+clai man grep
+clai man awk
+.fi
+.RE
+.PP
+Use a specific provider:
+.PP
+.RS
+.nf
+clai explain "ls -la" --provider ollama
+clai suggest "search in files" --provider anthropic
+.fi
+.RE
+.PP
+Generate shell completions:
+.PP
+.RS
+.nf
+clai completions zsh > ~/.zsh/completions/_clai
+clai completions bash > ~/.local/share/bash-completion/completions/clai
+clai completions fish > ~/.config/fish/completions/clai.fish
+.fi
+.RE
+.PP
+Set up for offline use:
+.PP
+.RS
+.nf
+clai setup
+clai setup --small  # Use smaller model
+.fi
+.RE
+.SH CACHING
+Responses are cached in an SQLite database with a 7-day TTL. The cache key is
+computed from the command, mode, and provider. Use
+.B \-\-no\-cache
+to bypass the cache.
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.TP
+.B 1
+General error (invalid arguments, provider unavailable, etc.).
+.SH BUGS
+Report bugs at https://github.com/alexey1312/clai/issues
+.SH AUTHOR
+Written by Alexey Nikityuk.
+.SH COPYRIGHT
+MIT License. Copyright (c) 2025 Alexey Nikityuk.
+.SH SEE ALSO
+.BR man (1),
+.BR tldr (1),
+.BR ollama (1)

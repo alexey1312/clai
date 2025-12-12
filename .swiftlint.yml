@@ -1,0 +1,25 @@
+included:
+  - Sources
+  - Tests
+
+excluded:
+  - .build
+  - Packages
+  - DerivedData
+
+disabled_rules:
+  - trailing_comma
+  - todo
+  - trailing_whitespace
+
+line_length:
+  warning: 120
+  error: 200
+
+type_body_length:
+  warning: 300
+  error: 500
+
+function_body_length:
+  warning: 60
+  error: 100
