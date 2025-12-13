@@ -1,6 +1,13 @@
 // swift-tools-version: 6.1
 import PackageDescription
 
+// MLX is Apple Silicon only - exclude on Linux
+#if os(Linux)
+    let anyLanguageModelTraits: Set<Package.Dependency.Trait> = []
+#else
+    let anyLanguageModelTraits: Set<Package.Dependency.Trait> = ["MLX"]
+#endif
+
 let package = Package(
     name: "clai",
     platforms: [
@@ -16,7 +23,7 @@ let package = Package(
         .package(
             url: "https://github.com/mattt/AnyLanguageModel",
             branch: "main",
-            traits: ["MLX"]
+            traits: anyLanguageModelTraits
         ),
         .package(url: "https://github.com/jpsim/Yams", from: "5.1.3"),
     ],

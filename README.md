@@ -45,6 +45,10 @@ Local-first, privacy-friendly.
 ### 1. Install clai
 
 ```bash
+# Using Homebrew (recommended)
+brew tap alexey1312/clai
+brew install clai
+
 # Using mise
 mise use -g ubi:alexey1312/clai
 
