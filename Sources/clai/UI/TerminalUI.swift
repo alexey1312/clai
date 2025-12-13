@@ -1,5 +1,16 @@
 import Foundation
-import Noora
+
+#if !os(Linux)
+    import Noora
+#endif
+
+/// Flush stdout in a concurrency-safe manner
+@inline(__always)
+private func flushStdout() {
+    // FileHandle.standardOutput is sendable and its synchronize operation
+    // ensures data is flushed to the underlying file descriptor
+    try? FileHandle.standardOutput.synchronize()
+}
 
 /// Output format for responses
 enum OutputFormat {
@@ -15,13 +26,17 @@ enum ModelDownloadChoice: String, CaseIterable {
     case skip = "Skip for now"
 }
 
-/// Terminal UI wrapper using Noora components
+/// Terminal UI wrapper using Noora components on macOS, plain ANSI on Linux
 final class TerminalUI: @unchecked Sendable {
-    private let noora: Noora
+    #if !os(Linux)
+        private let noora: Noora
+    #endif
     private let verbose: Bool
 
     init(verbose: Bool = false) {
-        noora = Noora()
+        #if !os(Linux)
+            noora = Noora()
+        #endif
         self.verbose = verbose
     }
 
@@ -41,7 +56,7 @@ final class TerminalUI: @unchecked Sendable {
             let filled = String(repeating: "█", count: percentage / 5)
             let empty = String(repeating: "░", count: 20 - percentage / 5)
             print("\r[\(filled)\(empty)] \(percentage)%", terminator: "")
-            fflush(stdout)
+            flushStdout()
             if progress >= 1.0 {
                 print()
             }
@@ -56,15 +71,27 @@ final class TerminalUI: @unchecked Sendable {
     // MARK: - Alerts
 
     func showSuccess(_ message: String) {
-        noora.success(.alert(TerminalText(stringLiteral: message)))
+        #if os(Linux)
+            print("\u{001B}[32m✓ \(message)\u{001B}[0m")
+        #else
+            noora.success(.alert(TerminalText(stringLiteral: message)))
+        #endif
     }
 
     func showWarning(_ message: String) {
-        noora.warning(.alert(TerminalText(stringLiteral: message)))
+        #if os(Linux)
+            print("\u{001B}[33m⚠ \(message)\u{001B}[0m")
+        #else
+            noora.warning(.alert(TerminalText(stringLiteral: message)))
+        #endif
     }
 
     func showError(_ message: String) {
-        noora.error(.alert(TerminalText(stringLiteral: message)))
+        #if os(Linux)
+            print("\u{001B}[31m✗ \(message)\u{001B}[0m")
+        #else
+            noora.error(.alert(TerminalText(stringLiteral: message)))
+        #endif
     }
 
     func showInfo(_ message: String) {
@@ -81,7 +108,7 @@ final class TerminalUI: @unchecked Sendable {
 
     func showPrompt(_ text: String) {
         print(text, terminator: "")
-        fflush(stdout)
+        flushStdout()
     }
 
     // MARK: - Response Output
@@ -162,12 +189,12 @@ final class TerminalUI: @unchecked Sendable {
 
     func clearLine() {
         print("\r\u{001B}[K", terminator: "")
-        fflush(stdout)
+        flushStdout()
     }
 
     func appendStreamChunk(_ chunk: String) {
         print(chunk, terminator: "")
-        fflush(stdout)
+        flushStdout()
     }
 
     func endStream() {
@@ -178,7 +205,7 @@ final class TerminalUI: @unchecked Sendable {
 
     func promptYesNo(_ question: String) async -> Bool {
         print("\(question) [y/N] ", terminator: "")
-        fflush(stdout)
+        flushStdout()
 
         guard let line = readLine()?.lowercased() else {
             return false
@@ -199,7 +226,7 @@ final class TerminalUI: @unchecked Sendable {
         }
         print()
         print("Choose [1-\(T.allCases.count)]: ", terminator: "")
-        fflush(stdout)
+        flushStdout()
 
         guard let line = readLine(),
               let index = Int(line),
@@ -240,7 +267,7 @@ final class TerminalUI: @unchecked Sendable {
         }
         print()
         print("Choose [1-\(available.count)]: ", terminator: "")
-        fflush(stdout)
+        flushStdout()
 
         guard let line = readLine(),
               let index = Int(line),

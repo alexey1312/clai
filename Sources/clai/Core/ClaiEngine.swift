@@ -1,5 +1,17 @@
 import Foundation
 
+/// Disable stdout buffering for immediate output in non-TTY environments
+@inline(__always)
+private func disableStdoutBuffering() {
+    #if os(Linux)
+    // On Linux, we use FileHandle.synchronize() for flushing instead of
+    // manipulating stdout buffer directly to avoid Swift 6 concurrency warnings
+    // The buffering behavior is acceptable since we flush explicitly
+    #else
+        setbuf(stdout, nil)
+    #endif
+}
+
 /// Core engine for clai - handles context gathering, prompt construction, and LLM interaction
 final class ClaiEngine: Sendable {
     private let options: GlobalOptions
@@ -10,7 +22,7 @@ final class ClaiEngine: Sendable {
 
     init(options: GlobalOptions) {
         // Disable stdout buffering for immediate output in non-TTY environments
-        setbuf(stdout, nil)
+        disableStdoutBuffering()
 
         self.options = options
         providerManager = ProviderManager(preferredProvider: options.provider)

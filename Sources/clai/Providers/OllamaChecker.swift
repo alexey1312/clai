@@ -1,5 +1,9 @@
 import Foundation
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
+
 /// Information about an Ollama model
 struct OllamaModelInfo: Sendable {
     /// Model name (e.g., "llama3.2:latest")
@@ -62,7 +66,7 @@ enum OllamaChecker {
             let response = try JSONDecoder().decode(OllamaTagsResponse.self, from: data)
 
             return response.models.map { model in
-                let sizeBytes = model.size ?? 0
+                let sizeBytes = Int64(model.size ?? 0)
 
                 return OllamaModelInfo(
                     name: model.name,
