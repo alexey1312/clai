@@ -111,8 +111,37 @@ struct MLXProvider: LLMProvider {
                 return nil
             }
 
-            // Use a small, fast model for CLI help
-            let model = MLXLanguageModel(modelId: "mlx-community/Qwen3-0.6B-4bit")
+            // Get model configuration
+            let config = Config.load()
+            let smallModelId = "mlx-community/Qwen3-0.6B-4bit"
+
+            // Determine preferred model based on config
+            let preferredModelId = config.mlx.preferSmallModel ? smallModelId : config.mlx.modelId
+
+            // Check what's available
+            let preferredIsDownloaded = MLXModelDiscovery.isModelDownloaded(preferredModelId)
+            let smallIsDownloaded = MLXModelDiscovery.isModelDownloaded(smallModelId)
+            let canFallbackToSmall = preferredModelId != smallModelId && smallIsDownloaded
+
+            // Select model: preferred if available, else small model (prevents large first-run download)
+            let modelId: String = if preferredIsDownloaded {
+                preferredModelId
+            } else if canFallbackToSmall {
+                smallModelId
+            } else {
+                smallModelId
+            }
+
+            // Check if model needs to be downloaded and show indication
+            if !MLXModelDiscovery.isModelDownloaded(modelId) {
+                let modelName = modelId.replacingOccurrences(of: "mlx-community/", with: "")
+                let estimatedSize = CuratedModels.getEstimatedSize(for: modelId)
+                print("Downloading MLX model: \(modelName)")
+                print("This is a one-time download (\(estimatedSize)). Please wait...")
+                print("")
+            }
+
+            let model = MLXLanguageModel(modelId: modelId)
             return MLXProvider(model: model)
         }
 

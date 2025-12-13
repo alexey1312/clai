@@ -92,4 +92,13 @@ enum CuratedModels {
     static var recommended: CuratedMLXModel {
         mlxModels.first { $0.isRecommended } ?? mlxModels[0]
     }
+
+    /// Get estimated size for a model ID
+    static func getEstimatedSize(for modelId: String) -> String {
+        if let curated = find(byId: modelId) {
+            return curated.estimatedSize
+        }
+        // Fallback for unknown models
+        return "unknown size"
+    }
 }
