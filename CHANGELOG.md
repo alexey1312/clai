@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.2] - 2025-12-13
+
+### Features
+
+- Add MLX metallib bundling for Homebrew distribution by @alexey1312
+
+
 ## [1.0.1] - 2025-12-13
 
 ### Bug Fixes
@@ -42,7 +49,7 @@ All notable changes to this project will be documented in this file.
 
 ---------
 
-Co-authored-by: Claude <noreply@anthropic.com> by @alexey1312
+Co-authored-by: Claude <noreply@anthropic.com> by @alexey1312 in [#1](https://github.com/alexey1312/clai/pull/1)
 
 
 ## [1.0.0] - 2025-12-13

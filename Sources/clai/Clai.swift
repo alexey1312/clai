@@ -29,7 +29,7 @@ struct Clai: AsyncParsableCommand {
           --no-stream         Disable streaming output
           --json              Output as JSON
         """,
-        version: "v1.0.1",
+        version: "v1.0.2",
         subcommands: [
             ExplainCommand.self,
             SuggestCommand.self,
