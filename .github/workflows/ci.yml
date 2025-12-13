@@ -64,6 +64,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Cache SPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: ${{ runner.os }}-linux-spm-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-linux-spm-
+
       - name: Show Swift version
         run: swift --version
 
