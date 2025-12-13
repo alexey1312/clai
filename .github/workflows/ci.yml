@@ -64,16 +64,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Install mise
-        uses: jdx/mise-action@v2
-
       - name: Show Swift version
         run: swift --version
 
       - name: Build
-        run: swift build 2>&1 | xcsift -w -f toon --toon-key-folding safe
-        continue-on-error: true  # May fail due to MLX trait (macOS-only)
+        run: swift build
 
       - name: Run tests
-        run: swift test --parallel --num-workers 1 2>&1 | xcsift -w -f toon --toon-key-folding safe
-        continue-on-error: true
+        run: swift test --parallel --num-workers 1

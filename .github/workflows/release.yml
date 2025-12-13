@@ -68,14 +68,9 @@ jobs:
             -skipMacroValidation \
             build 2>&1 | xcsift -w -f toon --toon-key-folding safe
 
-      - name: Install mise (Linux)
-        if: matrix.platform == 'linux-x64'
-        uses: jdx/mise-action@v2
-
       - name: Build release binary (Linux)
         if: matrix.platform == 'linux-x64'
-        run: swift build -c release 2>&1 | xcsift -w -f toon --toon-key-folding safe
-        continue-on-error: true  # May fail due to MLX trait (macOS-only)
+        run: swift build -c release
 
       - name: Create release archive (macOS)
         if: matrix.platform == 'macos'
@@ -87,7 +82,6 @@ jobs:
 
       - name: Create release archive (Linux)
         if: matrix.platform == 'linux-x64'
-        continue-on-error: true
         run: |
           mkdir -p dist
           cp .build/${{ matrix.build-path }}/clai dist/clai

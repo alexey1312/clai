@@ -20,6 +20,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.5.0"),
         .package(url: "https://github.com/tuist/Noora", from: "0.15.0"),
         .package(url: "https://github.com/stephencelis/SQLite.swift", from: "0.15.3"),
+        .package(url: "https://github.com/apple/swift-crypto", from: "4.2.0"),
         .package(
             url: "https://github.com/mattt/AnyLanguageModel",
             branch: "main",
@@ -34,6 +35,7 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "Noora", package: "Noora"),
                 .product(name: "SQLite", package: "SQLite.swift"),
+                .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "AnyLanguageModel", package: "AnyLanguageModel"),
                 .product(name: "Yams", package: "Yams"),
             ],
