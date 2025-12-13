@@ -86,6 +86,8 @@ jobs:
         run: |
           mkdir -p dist
           cp .build/xcode/Build/Products/Release/clai dist/clai
+          # Copy MLX metallib for local inference support (colocated with binary)
+          cp .build/xcode/Build/Products/Release/mlx-swift_Cmlx.bundle/Contents/Resources/default.metallib dist/mlx.metallib
           cp LICENSE dist/
           cd dist && zip -r ../${{ matrix.archive-name }}.zip .
 

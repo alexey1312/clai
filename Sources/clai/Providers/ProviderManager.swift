@@ -104,6 +104,13 @@ struct MLXProvider: LLMProvider {
             guard PlatformDetector.current.supportsMLX else {
                 return nil
             }
+
+            // MLX may fail if Metal libraries aren't bundled (e.g., Homebrew distribution).
+            // Suppress stderr during initialization to avoid confusing error messages.
+            guard MLXAvailabilityChecker.isMLXFunctional() else {
+                return nil
+            }
+
             // Use a small, fast model for CLI help
             let model = MLXLanguageModel(modelId: "mlx-community/Qwen3-0.6B-4bit")
             return MLXProvider(model: model)
