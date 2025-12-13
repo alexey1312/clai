@@ -8,7 +8,7 @@ private func disableStdoutBuffering() {
     // manipulating stdout buffer directly to avoid Swift 6 concurrency warnings
     // The buffering behavior is acceptable since we flush explicitly
     #else
-    setbuf(stdout, nil)
+        setbuf(stdout, nil)
     #endif
 }
 
