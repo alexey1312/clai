@@ -50,10 +50,10 @@ jobs:
         run: swift --version
 
       - name: Build
-        run: swift build 2>&1 | xcsift
+        run: swift build 2>&1 | xcsift -w -f toon --toon-key-folding safe
 
       - name: Test
-        run: swift test 2>&1 | xcsift
+        run: swift test 2>&1 | xcsift -w -f toon --toon-key-folding safe
 
   build-linux:
     name: Build & Test (Linux)
@@ -64,13 +64,16 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Install mise
+        uses: jdx/mise-action@v2
+
       - name: Show Swift version
         run: swift --version
 
       - name: Build
-        run: swift build
+        run: swift build 2>&1 | xcsift -w -f toon --toon-key-folding safe
         continue-on-error: true  # May fail due to MLX trait (macOS-only)
 
       - name: Run tests
-        run: swift test --parallel --num-workers 1
+        run: swift test --parallel --num-workers 1 2>&1 | xcsift -w -f toon --toon-key-folding safe
         continue-on-error: true
