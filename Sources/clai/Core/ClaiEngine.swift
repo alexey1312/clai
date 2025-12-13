@@ -4,11 +4,11 @@ import Foundation
 @inline(__always)
 private func disableStdoutBuffering() {
     #if os(Linux)
-        // On Linux, we use FileHandle.synchronize() for flushing instead of
-        // manipulating stdout buffer directly to avoid Swift 6 concurrency warnings
-        // The buffering behavior is acceptable since we flush explicitly
+    // On Linux, we use FileHandle.synchronize() for flushing instead of
+    // manipulating stdout buffer directly to avoid Swift 6 concurrency warnings
+    // The buffering behavior is acceptable since we flush explicitly
     #else
-        setbuf(stdout, nil)
+    setbuf(stdout, nil)
     #endif
 }
 
