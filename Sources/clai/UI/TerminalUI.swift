@@ -1,7 +1,7 @@
 import Foundation
 
 #if !os(Linux)
-    import Noora
+import Noora
 #endif
 
 /// Flush stdout in a concurrency-safe manner
