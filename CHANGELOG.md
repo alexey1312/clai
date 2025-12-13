@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.3] - 2025-12-13
+
+### Features
+
+- Support Library/Caches location for MLX models by @alexey1312
+
+
+### Miscellaneous Tasks
+
+- Add automatic Homebrew tap update on release by @alexey1312
+
+
 ## [1.0.2] - 2025-12-13
 
 ### Features
