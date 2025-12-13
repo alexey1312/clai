@@ -76,7 +76,7 @@ jobs:
         run: swift --version
 
       - name: Build
-        run: swift build
+        run: swift build --static-swift-stdlib
 
       - name: Run tests
         run: swift test --parallel --num-workers 1
