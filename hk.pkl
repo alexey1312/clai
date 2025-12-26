@@ -1,0 +1,19 @@
+amends "package://github.com/jdx/hk/releases/download/v1.28.0/hk@1.28.0#/Config.pkl"
+
+import "package://github.com/jdx/hk/releases/download/v1.28.0/hk@1.28.0#/Config.pkl"
+
+hooks {
+  ["pre-commit"] {
+    steps {
+      ["swiftformat"] {
+        fix = "swiftformat {{files}}"
+        check = "swiftformat --lint {{files}}"
+        types = List("swift")
+      }
+      ["swiftlint"] {
+        check = "swiftlint lint --strict --quiet {{files}}"
+        types = List("swift")
+      }
+    }
+  }
+}

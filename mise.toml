@@ -3,12 +3,17 @@ lockfile = false
 experimental = true
 disable_tools = ["python"]
 
+
+[env]
+HK_MISE = "true"
+
 [tools]
-pre-commit = "4.5.0"
+hk = "1.28.0"
 swiftformat = "0.58.7"
 swiftlint = "0.62.2"
 git-cliff = "2.10.1"
-xcsift = "1.0.15"
+xcsift = "1.0.18"
+pkl = "0.30.2"
 
 [tasks.build]
 description = "Build debug"
@@ -47,14 +52,10 @@ run = "swiftformat Sources --lint"
 [tasks.setup]
 description = "Setup development environment"
 run = """
-pre-commit install
-pre-commit install --hook-type commit-msg
-pre-commit install-hooks
+hk install
+sed -i '' 's/exec mise/export PATH="$HOME\\/.local\\/bin:$PATH"; exec mise/' .git/hooks/pre-commit
 """
 
-[tasks.pre-commit]
-description = "Run pre-commit on all files"
-run = "pre-commit run --all-files"
 
 [tasks.clean]
 description = "Clean build artifacts"
@@ -66,10 +67,7 @@ depends = ["lint", "format:check"]
 
 [tasks.ci]
 description = "Full CI pipeline: build, then lint + format + test in parallel"
-run = [
-  { task = "build" },
-  { tasks = ["lint", "format:check", "test"] },
-]
+run = [{ task = "build" }, { tasks = ["lint", "format:check", "test"] }]
 
 [tasks.changelog]
 description = "Generate CHANGELOG.md"
