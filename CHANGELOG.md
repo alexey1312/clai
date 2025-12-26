@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.4] - 2025-12-26
+
+### Documentation
+
+- Consolidate AI agent instructions into CLAUDE.md by @alexey1312
+
+
 ## [1.0.3] - 2025-12-13
 
 ### Features
