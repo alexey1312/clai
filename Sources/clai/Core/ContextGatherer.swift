@@ -5,6 +5,10 @@ struct CommandContext: Sendable {
     let helpOutput: String?
     let manPageContent: String?
     let tldrContent: String?
+
+    var isEmpty: Bool {
+        helpOutput == nil && manPageContent == nil && tldrContent == nil
+    }
 }
 
 /// Gathers context about commands from help, man pages, and tldr
@@ -37,7 +41,7 @@ final class ContextGatherer: Sendable {
     /// Get man page content for a command
     func getManPage(for command: String) async throws -> String {
         let baseCommand = command.split(separator: " ").first.map(String.init) ?? command
-        return try await runCommand("man \(baseCommand) | col -b")
+        return try await runCommand("set -o pipefail; man \(baseCommand) | col -b")
     }
 
     /// Get tldr page if available

@@ -38,6 +38,16 @@ final class ClaiEngine: Sendable {
         terminal.showProgress("Analyzing command...")
 
         let context = try await contextGatherer.gather(for: command)
+
+        // Smart fallback: If no documentation found, treat as natural language/topic request
+        if context.isEmpty {
+            if options.verbose {
+                terminal.showInfo("No documentation found for '\(command)', falling back to suggest mode")
+            }
+            try await suggest(task: command)
+            return
+        }
+
         let prompt = PromptBuilder.buildExplainPrompt(command: command, context: context)
 
         let (response, wasStreamed) = try await generateResponse(
