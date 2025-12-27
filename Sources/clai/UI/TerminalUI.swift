@@ -143,30 +143,59 @@ final class TerminalUI: @unchecked Sendable {
             else if lineStr.hasPrefix("```") {
                 print("\u{001B}[90m\(lineStr)\u{001B}[0m")
             }
-            // Inline code (`command`)
-            else if lineStr.contains("`") {
-                let styled = styleInlineCode(lineStr)
-                print(styled)
-            }
             // Bullet points
             else if lineStr.hasPrefix("- ") || lineStr.hasPrefix("* ") {
-                print("  • \(lineStr.dropFirst(2))")
+                let content = String(lineStr.dropFirst(2))
+                print("  • \(applyInlineStyles(content))")
             }
             // Numbered lists
             else if let match = lineStr.range(of: #"^\d+\. "#, options: .regularExpression) {
                 let number = lineStr[match].dropLast()
-                let rest = lineStr[match.upperBound...]
-                print("  \(number) \(rest)")
+                let rest = String(lineStr[match.upperBound...])
+                print("  \(number) \(applyInlineStyles(rest))")
             }
             // Regular text
             else {
-                print(lineStr)
+                print(applyInlineStyles(lineStr))
             }
         }
     }
 
+    /// Apply all inline styles (bold, code)
+    func applyInlineStyles(_ text: String) -> String {
+        var result = text
+        result = styleBold(result)
+        result = styleInlineCode(result)
+        return result
+    }
+
+    /// Style bold text (**text**)
+    func styleBold(_ text: String) -> String {
+        var result = ""
+        var inBold = false
+        let chars = Array(text)
+        var i = 0
+
+        while i < chars.count {
+            if i + 1 < chars.count && chars[i] == "*" && chars[i + 1] == "*" {
+                if inBold {
+                    result += "\u{001B}[0m"
+                } else {
+                    result += "\u{001B}[1m"
+                }
+                inBold.toggle()
+                i += 2
+            } else {
+                result.append(chars[i])
+                i += 1
+            }
+        }
+
+        return result
+    }
+
     /// Style inline code with backticks
-    private func styleInlineCode(_ text: String) -> String {
+    func styleInlineCode(_ text: String) -> String {
         var result = ""
         var inCode = false
         var iterator = text.makeIterator()
