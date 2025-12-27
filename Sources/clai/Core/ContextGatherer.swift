@@ -65,18 +65,28 @@ final class ContextGatherer: Sendable {
         process.standardOutput = pipe
         process.standardError = pipe
 
-        try process.run()
-        process.waitUntilExit()
+        return try await withCheckedThrowingContinuation { continuation in
+            process.terminationHandler = { process in
+                // Read data synchronously since process has terminated
+                let data = (try? pipe.fileHandleForReading.readToEnd()) ?? Data()
 
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        guard let output = String(data: data, encoding: .utf8) else {
-            throw ClaiError.commandFailed(command)
+                guard let output = String(data: data, encoding: .utf8) else {
+                    continuation.resume(throwing: ClaiError.commandFailed(command))
+                    return
+                }
+
+                if process.terminationStatus != 0 {
+                    continuation.resume(throwing: ClaiError.commandFailed(command))
+                } else {
+                    continuation.resume(returning: output.trimmingCharacters(in: .whitespacesAndNewlines))
+                }
+            }
+
+            do {
+                try process.run()
+            } catch {
+                continuation.resume(throwing: error)
+            }
         }
-
-        if process.terminationStatus != 0 {
-            throw ClaiError.commandFailed(command)
-        }
-
-        return output.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
