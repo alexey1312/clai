@@ -16,7 +16,7 @@ enum TextStyler {
         var i = 0
 
         while i < chars.count {
-            if i + 1 < chars.count && chars[i] == "*" && chars[i + 1] == "*" {
+            if i + 1 < chars.count, chars[i] == "*", chars[i + 1] == "*" {
                 if inBold {
                     result += "\u{001B}[0m"
                 } else {
