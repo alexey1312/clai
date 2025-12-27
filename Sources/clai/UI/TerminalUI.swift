@@ -143,48 +143,22 @@ final class TerminalUI: @unchecked Sendable {
             else if lineStr.hasPrefix("```") {
                 print("\u{001B}[90m\(lineStr)\u{001B}[0m")
             }
-            // Inline code (`command`)
-            else if lineStr.contains("`") {
-                let styled = styleInlineCode(lineStr)
-                print(styled)
-            }
             // Bullet points
             else if lineStr.hasPrefix("- ") || lineStr.hasPrefix("* ") {
-                print("  • \(lineStr.dropFirst(2))")
+                let content = String(lineStr.dropFirst(2))
+                print("  • \(TextStyler.apply(content))")
             }
             // Numbered lists
             else if let match = lineStr.range(of: #"^\d+\. "#, options: .regularExpression) {
                 let number = lineStr[match].dropLast()
-                let rest = lineStr[match.upperBound...]
-                print("  \(number) \(rest)")
+                let rest = String(lineStr[match.upperBound...])
+                print("  \(number) \(TextStyler.apply(rest))")
             }
             // Regular text
             else {
-                print(lineStr)
+                print(TextStyler.apply(lineStr))
             }
         }
-    }
-
-    /// Style inline code with backticks
-    private func styleInlineCode(_ text: String) -> String {
-        var result = ""
-        var inCode = false
-        var iterator = text.makeIterator()
-
-        while let char = iterator.next() {
-            if char == "`" {
-                if inCode {
-                    result += "\u{001B}[0m"
-                } else {
-                    result += "\u{001B}[36m"
-                }
-                inCode.toggle()
-            } else {
-                result.append(char)
-            }
-        }
-
-        return result
     }
 
     func clearLine() {
