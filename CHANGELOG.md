@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.5] - 2025-12-28
+
+### Features
+
+- Add interactive prompt and conventional commits by @alexey1312
+
+
+### Miscellaneous Tasks
+
+- Replace pre-commit with hk for git hooks by @alexey1312
+
+
+### Other
+
+- Merge branch 'main' of github.com:alexey1312/clai by @alexey1312
+
+- ⚡ Bolt: Use non-blocking process execution in ContextGatherer  by @google-labs-jules[bot] in [#2](https://github.com/alexey1312/clai/pull/2)
+
+- 🎨 Palette: Enhance CLI Markdown rendering with bold and composite styles  by @google-labs-jules[bot] in [#3](https://github.com/alexey1312/clai/pull/3)
+
+
 ## [1.0.4] - 2025-12-26
 
 ### Documentation
