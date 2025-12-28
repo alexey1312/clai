@@ -18,7 +18,8 @@ enum TextStyler {
         while i < chars.count {
             if i + 1 < chars.count, chars[i] == "*", chars[i + 1] == "*" {
                 if inBold {
-                    result += "\u{001B}[0m"
+                    // Reset normal intensity (22m) instead of resetting all (0m)
+                    result += "\u{001B}[22m"
                 } else {
                     result += "\u{001B}[1m"
                 }
@@ -42,7 +43,8 @@ enum TextStyler {
         while let char = iterator.next() {
             if char == "`" {
                 if inCode {
-                    result += "\u{001B}[0m"
+                    // Reset default foreground color (39m) instead of resetting all (0m)
+                    result += "\u{001B}[39m"
                 } else {
                     result += "\u{001B}[36m"
                 }
