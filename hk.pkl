@@ -1,9 +1,10 @@
 amends "package://github.com/jdx/hk/releases/download/v1.28.0/hk@1.28.0#/Config.pkl"
 
-import "package://github.com/jdx/hk/releases/download/v1.28.0/hk@1.28.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v1.28.0/hk@1.28.0#/Builtins.pkl"
 
 hooks {
   ["pre-commit"] {
+    fix = true
     steps {
       ["swiftformat"] {
         fix = "swiftformat {{files}}"
@@ -14,6 +15,11 @@ hooks {
         check = "swiftlint lint --strict --quiet {{files}}"
         types = List("swift")
       }
+    }
+  }
+  ["commit-msg"] {
+    steps {
+      ["conventional-commits"] = Builtins.check_conventional_commit
     }
   }
 }

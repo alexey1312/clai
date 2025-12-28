@@ -47,6 +47,35 @@ swift test                  # Test
 swift run clai explain ls   # Run the CLI
 ```
 
+## Conventional Commits
+
+This project enforces [Conventional Commits](https://www.conventionalcommits.org/) via `hk` pre-commit hooks.
+
+**Format:** `<type>(<scope>): <description>`
+
+**Types:**
+- `feat` — New feature
+- `fix` — Bug fix
+- `docs` — Documentation only
+- `style` — Formatting, no code change
+- `refactor` — Code change without fix/feature
+- `perf` — Performance improvement
+- `test` — Adding/updating tests
+- `build` — Build system or dependencies
+- `ci` — CI configuration
+- `chore` — Maintenance tasks
+- `revert` — Revert previous commit
+
+**Examples:**
+```
+feat: add MLX provider support
+fix(cache): handle empty response correctly
+docs: update README with installation steps
+refactor(providers): extract common interface
+```
+
+**Breaking changes:** Add `!` after type/scope: `feat!: remove deprecated API`
+
 ## Architecture
 
 **clai** is an LLM-powered CLI help assistant built with Swift 6.1 and ArgumentParser.
