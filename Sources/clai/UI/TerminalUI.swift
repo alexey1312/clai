@@ -148,6 +148,12 @@ final class TerminalUI: @unchecked Sendable {
                 let content = String(lineStr.dropFirst(2))
                 print("  • \(TextStyler.apply(content))")
             }
+            // Blockquotes (> )
+            else if lineStr.hasPrefix("> ") {
+                let content = String(lineStr.dropFirst(2))
+                // Gray bar (90m), Italic text (3m) - reset color (39m) and italic (23m)
+                print("  \u{001B}[90m│\u{001B}[39m \u{001B}[3m\(TextStyler.apply(content))\u{001B}[23m")
+            }
             // Numbered lists
             else if let match = lineStr.range(of: #"^\d+\. "#, options: .regularExpression) {
                 let number = lineStr[match].dropLast()
