@@ -23,7 +23,7 @@ enum TextStyler {
                 if j < chars.count {
                     // Output code block with color
                     result += "\u{001B}[36m" // Cyan
-                    result += String(chars[i+1..<j])
+                    result += String(chars[i + 1 ..< j])
                     result += "\u{001B}[39m" // Reset Default FG
                     i = j + 1
                 } else {
@@ -44,28 +44,28 @@ enum TextStyler {
             }
             // Italic (_..._)
             else if chars[i] == "_" {
-                let prev = i > 0 ? chars[i-1] : " "
-                let next = i + 1 < chars.count ? chars[i+1] : " "
+                let prev = i > 0 ? chars[i - 1] : " "
+                let next = i + 1 < chars.count ? chars[i + 1] : " "
 
                 let isPrevAlpha = prev.isLetter || prev.isNumber
                 let isNextAlpha = next.isLetter || next.isNumber
 
                 // Toggle Off: text_ or punct_
                 // We only require that the NEXT character is NOT alphanumeric.
-                // This allows closing after punctuation (e.g. "_Stop!_") while protecting snake_case (e.g. "snake_case" -> next 'c' is alpha)
-                if inItalic && !isNextAlpha {
+                // This allows closing after punctuation (e.g. "_Stop!_") while protecting snake_case (e.g. "snake_case"
+                // -> next 'c' is alpha)
+                if inItalic, !isNextAlpha {
                     result += "\u{001B}[23m"
                     inItalic = false
                     i += 1
                 }
                 // Toggle On: _text
                 // We require PREV char is NOT alphanumeric (space/start/punct) and NEXT IS alphanumeric.
-                else if !inItalic && !isPrevAlpha && isNextAlpha {
+                else if !inItalic, !isPrevAlpha, isNextAlpha {
                     result += "\u{001B}[3m"
                     inItalic = true
                     i += 1
-                }
-                else {
+                } else {
                     result.append(chars[i])
                     i += 1
                 }
