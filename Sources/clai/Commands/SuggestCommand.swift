@@ -1,4 +1,5 @@
 import ArgumentParser
+import Foundation
 
 struct SuggestCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
@@ -20,9 +21,29 @@ struct SuggestCommand: AsyncParsableCommand {
     var task: [String] = []
 
     mutating func run() async throws {
-        let taskString = task.joined(separator: " ")
-        guard !taskString.isEmpty else {
-            throw ValidationError("Please describe the task you want to accomplish")
+        var taskString = task.joined(separator: " ")
+
+        // If no task provided, try interactive prompt (TTY only)
+        if taskString.isEmpty {
+            guard isatty(STDIN_FILENO) != 0 else {
+                throw ValidationError("Please describe the task you want to accomplish")
+            }
+
+            let terminal = TerminalUI()
+            terminal.showPrompt("Enter task to accomplish: ")
+
+            guard let input = readLine(),
+                  !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else {
+                print()
+                print("No task provided. Try:")
+                print("  clai suggest \"find large files\"   Get command suggestions")
+                print("  clai explain ls                 Explain a command")
+                print("  clai --help                     Show all options")
+                return
+            }
+
+            taskString = input.trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
         let engine = ClaiEngine(options: options)
