@@ -27,7 +27,12 @@ final class ResponseCache: @unchecked Sendable {
         database = try Connection(dbPath)
 
         try createTable()
-        try cleanupExpired()
+
+        // Optimize startup: Run cleanup in background
+        // This avoids blocking ClaiEngine initialization on DB operations
+        Task { [weak self] in
+            try? self?.cleanupExpired()
+        }
     }
 
     /// Get cache directory path
