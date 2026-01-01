@@ -26,6 +26,12 @@ final class ResponseCache: @unchecked Sendable {
         let dbPath = cacheDir.appendingPathComponent("clai_cache.sqlite").path
         database = try Connection(dbPath)
 
+        // Enable WAL mode for better concurrency and write performance
+        try database.run("PRAGMA journal_mode = WAL;")
+
+        // Set synchronous to NORMAL for better performance with acceptable durability for cache
+        try database.run("PRAGMA synchronous = NORMAL;")
+
         try createTable()
 
         // Optimize startup: Run cleanup in background
