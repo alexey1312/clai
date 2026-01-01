@@ -2,7 +2,10 @@
 enum TextStyler {
     /// Apply all inline styles (bold, italic, code)
     /// Uses a single-pass parser to handle nesting and precedence correctly.
-    static func apply(_ text: String) -> String {
+    /// - Parameters:
+    ///   - text: The text to style
+    ///   - baseReset: The ANSI code to reset to after a colored block (default: Default FG `[39m`)
+    static func apply(_ text: String, baseReset: String = "\u{001B}[39m") -> String {
         var result = ""
         let chars = Array(text)
         var i = 0
@@ -24,7 +27,7 @@ enum TextStyler {
                     // Output code block with color
                     result += "\u{001B}[36m" // Cyan
                     result += String(chars[i + 1 ..< j])
-                    result += "\u{001B}[39m" // Reset Default FG
+                    result += baseReset // Reset to base color (default or header color)
                     i = j + 1
                 } else {
                     // Unclosed code block, treat start as literal
@@ -51,16 +54,12 @@ enum TextStyler {
                 let isNextAlpha = next.isLetter || next.isNumber
 
                 // Toggle Off: text_ or punct_
-                // We only require that the NEXT character is NOT alphanumeric.
-                // This allows closing after punctuation (e.g. "_Stop!_") while protecting snake_case (e.g. "snake_case"
-                // -> next 'c' is alpha)
                 if inItalic, !isNextAlpha {
                     result += "\u{001B}[23m"
                     inItalic = false
                     i += 1
                 }
                 // Toggle On: _text
-                // We require PREV char is NOT alphanumeric (space/start/punct) and NEXT IS alphanumeric.
                 else if !inItalic, !isPrevAlpha, isNextAlpha {
                     result += "\u{001B}[3m"
                     inItalic = true
