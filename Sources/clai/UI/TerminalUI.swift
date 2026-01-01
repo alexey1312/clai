@@ -133,11 +133,14 @@ final class TerminalUI: @unchecked Sendable {
 
             // Headers (# ## ###)
             if lineStr.hasPrefix("### ") {
-                print("\u{001B}[1;36m\(lineStr.dropFirst(4))\u{001B}[0m")
+                let content = TextStyler.apply(String(lineStr.dropFirst(4)), baseReset: "\u{001B}[1;36m")
+                print("\u{001B}[1;36m\(content)\u{001B}[0m")
             } else if lineStr.hasPrefix("## ") {
-                print("\u{001B}[1;33m\(lineStr.dropFirst(3))\u{001B}[0m")
+                let content = TextStyler.apply(String(lineStr.dropFirst(3)), baseReset: "\u{001B}[1;33m")
+                print("\u{001B}[1;33m\(content)\u{001B}[0m")
             } else if lineStr.hasPrefix("# ") {
-                print("\u{001B}[1;32m\(lineStr.dropFirst(2))\u{001B}[0m")
+                let content = TextStyler.apply(String(lineStr.dropFirst(2)), baseReset: "\u{001B}[1;32m")
+                print("\u{001B}[1;32m\(content)\u{001B}[0m")
             }
             // Code blocks (```)
             else if lineStr.hasPrefix("```") {
