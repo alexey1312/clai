@@ -174,6 +174,17 @@ extension String {
     var sha256Hash: String {
         let data = Data(utf8)
         let digest = SHA256.hash(data: data)
-        return digest.map { String(format: "%02x", $0) }.joined()
+        // Optimization: Use lookup table and direct buffer construction
+        // This avoids String(format:) parsing and intermediate String allocations
+        let hex = Array("0123456789abcdef".utf16)
+        var chars = [UInt16]()
+        chars.reserveCapacity(digest.count * 2)
+
+        for byte in digest {
+            chars.append(hex[Int(byte >> 4)])
+            chars.append(hex[Int(byte & 0x0F)])
+        }
+
+        return String(utf16CodeUnits: chars, count: chars.count)
     }
 }
