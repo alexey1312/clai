@@ -205,10 +205,10 @@ final class TerminalUI: @unchecked Sendable {
         print("\u{001B}[1m\(question)\u{001B}[0m")
         print()
         for (index, option) in T.allCases.enumerated() {
-            print("  [\(index + 1)] \(option.rawValue)")
+            print("  \u{001B}[90m[\u{001B}[36m\(index + 1)\u{001B}[90m]\u{001B}[0m \(option.rawValue)")
         }
         print()
-        print("Choose [1-\(T.allCases.count)]: ", terminator: "")
+        print("Choose \u{001B}[36m[1-\(T.allCases.count)]\u{001B}[0m: ", terminator: "")
         flushStdout()
 
         guard let line = readLine(),
@@ -246,10 +246,10 @@ final class TerminalUI: @unchecked Sendable {
         print()
 
         for (index, provider) in available.enumerated() {
-            print("  [\(index + 1)] \(provider)")
+            print("  \u{001B}[90m[\u{001B}[36m\(index + 1)\u{001B}[90m]\u{001B}[0m \(provider)")
         }
         print()
-        print("Choose [1-\(available.count)]: ", terminator: "")
+        print("Choose \u{001B}[36m[1-\(available.count)]\u{001B}[0m: ", terminator: "")
         flushStdout()
 
         guard let line = readLine(),
