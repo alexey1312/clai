@@ -174,6 +174,18 @@ extension String {
     var sha256Hash: String {
         let data = Data(utf8)
         let digest = SHA256.hash(data: data)
-        return digest.map { String(format: "%02x", $0) }.joined()
+
+        // Performance Optimization: Use lookup table and utf16CodeUnits
+        // to avoid String(format:) overhead and intermediate allocations.
+        // This is significantly faster for frequent hashing.
+        let hexDigits = Array("0123456789abcdef".utf16)
+        var chars = [UInt16]()
+        chars.reserveCapacity(digest.count * 2)
+
+        for byte in digest {
+            chars.append(hexDigits[Int(byte >> 4)])
+            chars.append(hexDigits[Int(byte & 0x0F)])
+        }
+        return String(utf16CodeUnits: chars, count: chars.count)
     }
 }
