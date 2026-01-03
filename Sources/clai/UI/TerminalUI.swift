@@ -205,21 +205,27 @@ final class TerminalUI: @unchecked Sendable {
         print("\u{001B}[1m\(question)\u{001B}[0m")
         print()
         for (index, option) in T.allCases.enumerated() {
-            print("  [\(index + 1)] \(option.rawValue)")
+            print("  \u{001B}[90m[\u{001B}[36m\(index + 1)\u{001B}[90m]\u{001B}[0m \(option.rawValue)")
         }
         print()
-        print("Choose [1-\(T.allCases.count)]: ", terminator: "")
-        flushStdout()
 
-        guard let line = readLine(),
-              let index = Int(line),
-              index >= 1,
-              index <= T.allCases.count
-        else {
-            return nil
+        while true {
+            print("Choose \u{001B}[90m[\u{001B}[36m1-\(T.allCases.count)\u{001B}[90m]\u{001B}[0m: ", terminator: "")
+            flushStdout()
+
+            guard let line = readLine() else {
+                return nil
+            }
+
+            if let index = Int(line),
+               index >= 1,
+               index <= T.allCases.count
+            {
+                return Array(T.allCases)[index - 1]
+            }
+
+            print("\u{001B}[31mInvalid choice. Please try again.\u{001B}[0m")
         }
-
-        return Array(T.allCases)[index - 1]
     }
 
     /// Prompt for MLX model download consent
@@ -246,21 +252,33 @@ final class TerminalUI: @unchecked Sendable {
         print()
 
         for (index, provider) in available.enumerated() {
-            print("  [\(index + 1)] \(provider)")
+            print("  \u{001B}[90m[\u{001B}[36m\(index + 1)\u{001B}[90m]\u{001B}[0m \(provider)")
         }
         print()
-        print("Choose [1-\(available.count)]: ", terminator: "")
-        flushStdout()
 
-        guard let line = readLine(),
-              let index = Int(line),
-              index >= 1,
-              index <= available.count
-        else {
-            return available.first
+        while true {
+            print("Choose \u{001B}[90m[\u{001B}[36m1-\(available.count)\u{001B}[90m]\u{001B}[0m: ", terminator: "")
+            flushStdout()
+
+            // If EOF (Ctrl-D), return default
+            guard let line = readLine() else {
+                return available.first
+            }
+
+            // If empty line, return default
+            if line.isEmpty {
+                return available.first
+            }
+
+            if let index = Int(line),
+               index >= 1,
+               index <= available.count
+            {
+                return available[index - 1]
+            }
+
+            print("\u{001B}[31mInvalid choice. Please try again.\u{001B}[0m")
         }
-
-        return available[index - 1]
     }
 
     // MARK: - Private
