@@ -14,6 +14,7 @@ swiftlint = "0.62.2"
 git-cliff = "2.10.1"
 xcsift = "1.0.18"
 pkl = "0.30.2"
+swift = "latest"
 
 [tasks.build]
 description = "Build debug"
