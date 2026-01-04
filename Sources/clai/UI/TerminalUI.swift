@@ -208,18 +208,26 @@ final class TerminalUI: @unchecked Sendable {
             print("  [\(index + 1)] \(option.rawValue)")
         }
         print()
-        print("Choose [1-\(T.allCases.count)]: ", terminator: "")
-        flushStdout()
 
-        guard let line = readLine(),
-              let index = Int(line),
-              index >= 1,
-              index <= T.allCases.count
-        else {
-            return nil
+        while true {
+            print("Choose [1-\(T.allCases.count)]: ", terminator: "")
+            flushStdout()
+
+            // Handle EOF/Ctrl-D by returning nil
+            guard let line = readLine() else {
+                return nil
+            }
+
+            if let index = Int(line),
+               index >= 1,
+               index <= T.allCases.count
+            {
+                return Array(T.allCases)[index - 1]
+            }
+
+            // Interactive retry loop for invalid input
+            print("\u{001B}[31mInvalid selection. Please choose 1-\(T.allCases.count).\u{001B}[0m")
         }
-
-        return Array(T.allCases)[index - 1]
     }
 
     /// Prompt for MLX model download consent
@@ -249,18 +257,28 @@ final class TerminalUI: @unchecked Sendable {
             print("  [\(index + 1)] \(provider)")
         }
         print()
-        print("Choose [1-\(available.count)]: ", terminator: "")
-        flushStdout()
 
-        guard let line = readLine(),
-              let index = Int(line),
-              index >= 1,
-              index <= available.count
-        else {
-            return available.first
+        while true {
+            print("Choose [1-\(available.count)]: ", terminator: "")
+            flushStdout()
+
+            // Handle EOF/Ctrl-D by defaulting to first (historical behavior, though explicit cancel might be better)
+            // But for consistency with promptChoice, maybe we should return nil?
+            // However, the original code returned available.first on error.
+            // Let's stick to "retry on invalid, nil on EOF".
+            guard let line = readLine() else {
+                return nil
+            }
+
+            if let index = Int(line),
+               index >= 1,
+               index <= available.count
+            {
+                return available[index - 1]
+            }
+
+            print("\u{001B}[31mInvalid selection. Please choose 1-\(available.count).\u{001B}[0m")
         }
-
-        return available[index - 1]
     }
 
     // MARK: - Private
