@@ -171,9 +171,25 @@ struct CachedResponse: Sendable {
 
 extension String {
     /// Compute SHA256 hash of the string
+    // Lookup table for hex encoding
+    private static let hexDigits = Array("0123456789abcdef".utf16)
+
+    /// Compute SHA256 hash of the string
     var sha256Hash: String {
         let data = Data(utf8)
         let digest = SHA256.hash(data: data)
-        return digest.map { String(format: "%02x", $0) }.joined()
+        var chars = [UInt16](repeating: 0, count: digest.count * 2)
+
+        // Optimization: Use direct array manipulation and a lookup table
+        // instead of String(format:) to avoid significant parsing overhead
+        // and intermediate string allocations.
+        var index = 0
+        for byte in digest {
+            chars[index] = Self.hexDigits[Int(byte >> 4)]
+            chars[index + 1] = Self.hexDigits[Int(byte & 0x0F)]
+            index += 2
+        }
+
+        return String(utf16CodeUnits: chars, count: chars.count)
     }
 }
