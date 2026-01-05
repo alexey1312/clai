@@ -174,6 +174,22 @@ extension String {
     var sha256Hash: String {
         let data = Data(utf8)
         let digest = SHA256.hash(data: data)
-        return digest.map { String(format: "%02x", $0) }.joined()
+        return digest.hexString
+    }
+}
+
+private extension Sequence where Element == UInt8 {
+    var hexString: String {
+        let hexDigits = Array("0123456789abcdef".utf16)
+        var chars: [UInt16] = []
+        // Estimate capacity based on typical usage (SHA256 is 32 bytes)
+        chars.reserveCapacity(32 * 2)
+
+        for byte in self {
+            chars.append(hexDigits[Int(byte >> 4)])
+            chars.append(hexDigits[Int(byte & 0x0F)])
+        }
+
+        return String(utf16CodeUnits: chars, count: chars.count)
     }
 }
