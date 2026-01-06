@@ -208,18 +208,26 @@ final class TerminalUI: @unchecked Sendable {
             print("  \u{001B}[90m[\u{001B}[36m\(index + 1)\u{001B}[90m]\u{001B}[0m \(option.rawValue)")
         }
         print()
-        print("Choose \u{001B}[36m[1-\(T.allCases.count)]\u{001B}[0m: ", terminator: "")
-        flushStdout()
+        while true {
+            print("Choose \u{001B}[36m[1-\(T.allCases.count)]\u{001B}[0m: ", terminator: "")
+            flushStdout()
 
-        guard let line = readLine(),
-              let index = Int(line),
-              index >= 1,
-              index <= T.allCases.count
-        else {
-            return nil
+            guard let line = readLine() else {
+                return nil
+            }
+
+            if line.isEmpty {
+                return nil
+            }
+
+            if let index = Int(line),
+               index >= 1,
+               index <= T.allCases.count {
+                return Array(T.allCases)[index - 1]
+            }
+
+            print("\u{001B}[31mInvalid selection. Please enter a number between 1 and \(T.allCases.count).\u{001B}[0m")
         }
-
-        return Array(T.allCases)[index - 1]
     }
 
     /// Prompt for MLX model download consent
@@ -249,18 +257,26 @@ final class TerminalUI: @unchecked Sendable {
             print("  \u{001B}[90m[\u{001B}[36m\(index + 1)\u{001B}[90m]\u{001B}[0m \(provider)")
         }
         print()
-        print("Choose \u{001B}[36m[1-\(available.count)]\u{001B}[0m: ", terminator: "")
-        flushStdout()
+        while true {
+            print("Choose \u{001B}[36m[1-\(available.count)]\u{001B}[0m: ", terminator: "")
+            flushStdout()
 
-        guard let line = readLine(),
-              let index = Int(line),
-              index >= 1,
-              index <= available.count
-        else {
-            return available.first
+            guard let line = readLine() else {
+                return nil
+            }
+
+            if line.isEmpty {
+                return available.first
+            }
+
+            if let index = Int(line),
+               index >= 1,
+               index <= available.count {
+                return available[index - 1]
+            }
+
+            print("\u{001B}[31mInvalid selection. Please enter a number between 1 and \(available.count).\u{001B}[0m")
         }
-
-        return available[index - 1]
     }
 
     // MARK: - Private
