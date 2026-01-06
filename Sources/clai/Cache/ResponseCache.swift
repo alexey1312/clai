@@ -174,6 +174,23 @@ extension String {
     var sha256Hash: String {
         let data = Data(utf8)
         let digest = SHA256.hash(data: data)
-        return digest.map { String(format: "%02x", $0) }.joined()
+        return digest.hexString
+    }
+}
+
+// Private lookup table for hex conversion
+private let hexDigits = Array("0123456789abcdef".utf16)
+
+private extension Sequence<UInt8> {
+    var hexString: String {
+        var chars: [UInt16] = []
+        chars.reserveCapacity(underestimatedCount * 2)
+
+        for byte in self {
+            chars.append(hexDigits[Int(byte >> 4)])
+            chars.append(hexDigits[Int(byte & 0x0F)])
+        }
+
+        return String(utf16CodeUnits: chars, count: chars.count)
     }
 }
