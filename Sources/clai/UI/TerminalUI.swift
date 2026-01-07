@@ -186,7 +186,7 @@ final class TerminalUI: @unchecked Sendable {
 
     // MARK: - Prompts
 
-    func promptYesNo(_ question: String) async -> Bool {
+    func promptYesNo(_ question: String) -> Bool {
         print("\(question) [y/N] ", terminator: "")
         flushStdout()
 
@@ -200,30 +200,43 @@ final class TerminalUI: @unchecked Sendable {
     func promptChoice<T: CaseIterable & RawRepresentable>(
         _ question: String,
         options: T.Type
-    ) async -> T? where T.RawValue == String {
+    ) -> T? where T.RawValue == String {
+        let listOptions = T.allCases.map { (display: $0.rawValue, value: $0) }
+        return promptList(question, options: listOptions)
+    }
+
+    /// Generic list prompt
+    func promptList<T>(
+        _ question: String,
+        options: [(display: String, value: T)]
+    ) -> T? {
+        guard !options.isEmpty else { return nil }
+
         print()
         print("\u{001B}[1m\(question)\u{001B}[0m")
         print()
-        for (index, option) in T.allCases.enumerated() {
-            print("  \u{001B}[90m[\u{001B}[36m\(index + 1)\u{001B}[90m]\u{001B}[0m \(option.rawValue)")
+        for (index, option) in options.enumerated() {
+            print("  \u{001B}[90m[\u{001B}[36m\(index + 1)\u{001B}[90m]\u{001B}[0m \(option.display)")
         }
         print()
-        print("Choose \u{001B}[36m[1-\(T.allCases.count)]\u{001B}[0m: ", terminator: "")
-        flushStdout()
 
-        guard let line = readLine(),
-              let index = Int(line),
-              index >= 1,
-              index <= T.allCases.count
-        else {
-            return nil
+        while true {
+            print("Choose \u{001B}[36m[1-\(options.count)]\u{001B}[0m (or Enter to cancel): ", terminator: "")
+            flushStdout()
+
+            guard let line = readLine() else { return nil }
+            if line.isEmpty { return nil }
+
+            if let index = Int(line), index >= 1, index <= options.count {
+                return options[index - 1].value
+            }
+
+            showError("Invalid selection")
         }
-
-        return Array(T.allCases)[index - 1]
     }
 
     /// Prompt for MLX model download consent
-    func promptMLXDownload() async -> ModelDownloadChoice? {
+    func promptMLXDownload() -> ModelDownloadChoice? {
         print()
         print("\u{001B}[1mNo local LLM provider found.\u{001B}[0m")
         print()
@@ -231,14 +244,14 @@ final class TerminalUI: @unchecked Sendable {
         print("This is free and private - no data leaves your device.")
         print()
 
-        return await promptChoice(
+        return promptChoice(
             "What would you like to do?",
             options: ModelDownloadChoice.self
         )
     }
 
     /// Show provider selection prompt
-    func promptProviderSelection(available: [String]) async -> String? {
+    func promptProviderSelection(available: [String]) -> String? {
         guard !available.isEmpty else { return nil }
 
         print()
@@ -249,18 +262,20 @@ final class TerminalUI: @unchecked Sendable {
             print("  \u{001B}[90m[\u{001B}[36m\(index + 1)\u{001B}[90m]\u{001B}[0m \(provider)")
         }
         print()
-        print("Choose \u{001B}[36m[1-\(available.count)]\u{001B}[0m: ", terminator: "")
-        flushStdout()
 
-        guard let line = readLine(),
-              let index = Int(line),
-              index >= 1,
-              index <= available.count
-        else {
-            return available.first
+        while true {
+            print("Choose \u{001B}[36m[1-\(available.count)]\u{001B}[0m: ", terminator: "")
+            flushStdout()
+
+            guard let line = readLine() else { return available.first }
+            if line.isEmpty { return available.first }
+
+            if let index = Int(line), index >= 1, index <= available.count {
+                return available[index - 1]
+            }
+
+            showError("Invalid selection")
         }
-
-        return available[index - 1]
     }
 
     // MARK: - Private

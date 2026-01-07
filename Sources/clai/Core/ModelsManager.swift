@@ -153,7 +153,7 @@ final class ModelsManager {
             await printModelsList()
 
             // Get action from user
-            guard let action = await terminal.promptChoice(
+            guard let action = terminal.promptChoice(
                 "What would you like to do?",
                 options: ModelAction.self
             ) else {
@@ -244,26 +244,11 @@ final class ModelsManager {
             return
         }
 
-        terminal.printLine()
-        terminal.showHeader("Select default model:")
-        terminal.printLine()
-
-        for (index, option) in options.enumerated() {
-            terminal.printLine("  [\(index + 1)] \(option.0)")
-        }
-        terminal.printLine()
-        terminal.showPrompt("Choose [1-\(options.count)]: ")
-
-        guard let line = readLine(),
-              let index = Int(line),
-              index >= 1,
-              index <= options.count
-        else {
-            terminal.showWarning("Invalid selection")
+        let listOptions = options.map { (display: $0.0, value: $0.1) }
+        guard let selection = terminal.promptList("Select default model:", options: listOptions) else {
             return
         }
 
-        let selection = options[index - 1].1
         try setDefaultModel(selection)
         terminal.showSuccess("Default model updated!")
     }
@@ -277,35 +262,17 @@ final class ModelsManager {
             return
         }
 
-        terminal.printLine()
-        terminal.showHeader("Available for download:")
-        terminal.printLine()
-
-        for (index, model) in notDownloaded.enumerated() {
+        let listOptions = notDownloaded.map { model -> (display: String, value: MLXModelInfo) in
             let recommended = CuratedModels.find(byId: model.modelId)?.isRecommended == true
             let rec = recommended ? " (Recommended)" : ""
             let desc = model.description.map { " - \($0)" } ?? ""
-            terminal.printLine("  [\(index + 1)] \(model.displayName) (\(model.sizeFormatted))\(rec)\(desc)")
+            return (display: "\(model.displayName) (\(model.sizeFormatted))\(rec)\(desc)", value: model)
         }
-        terminal.printLine()
-        terminal.showPrompt("Choose [1-\(notDownloaded.count)] or 0 to cancel: ")
 
-        guard let line = readLine(),
-              let index = Int(line)
-        else {
+        guard let model = terminal.promptList("Available for download:", options: listOptions) else {
             return
         }
 
-        if index == 0 {
-            return
-        }
-
-        guard index >= 1, index <= notDownloaded.count else {
-            terminal.showWarning("Invalid selection")
-            return
-        }
-
-        let model = notDownloaded[index - 1]
         try await downloadMLXModel(model.modelId)
     }
 
@@ -317,37 +284,18 @@ final class ModelsManager {
             return
         }
 
-        terminal.printLine()
-        terminal.showHeader("Downloaded models:")
-        terminal.printLine()
-
-        for (index, model) in downloaded.enumerated() {
+        let listOptions = downloaded.map { model -> (display: String, value: MLXModelInfo) in
             let defaultLabel = model.isDefault ? " (Default)" : ""
-            terminal.printLine("  [\(index + 1)] \(model.displayName) (\(model.sizeFormatted))\(defaultLabel)")
+            return (display: "\(model.displayName) (\(model.sizeFormatted))\(defaultLabel)", value: model)
         }
-        terminal.printLine()
-        terminal.showPrompt("Choose [1-\(downloaded.count)] or 0 to cancel: ")
 
-        guard let line = readLine(),
-              let index = Int(line)
-        else {
+        guard let model = terminal.promptList("Downloaded models:", options: listOptions) else {
             return
         }
-
-        if index == 0 {
-            return
-        }
-
-        guard index >= 1, index <= downloaded.count else {
-            terminal.showWarning("Invalid selection")
-            return
-        }
-
-        let model = downloaded[index - 1]
 
         // Confirm deletion
         terminal.printLine()
-        let confirmed = await terminal.promptYesNo("Delete \(model.displayName) (\(model.sizeFormatted))?")
+        let confirmed = terminal.promptYesNo("Delete \(model.displayName) (\(model.sizeFormatted))?")
 
         if confirmed {
             try deleteMLXModel(model.modelId)
