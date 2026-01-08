@@ -174,6 +174,21 @@ extension String {
     var sha256Hash: String {
         let data = Data(utf8)
         let digest = SHA256.hash(data: data)
-        return digest.map { String(format: "%02x", $0) }.joined()
+        return digest.hexString
+    }
+}
+
+private extension Sequence where Element == UInt8 {
+    var hexString: String {
+        let hexDigits = Array("0123456789abcdef".utf16)
+        var utf16 = [UInt16]()
+        utf16.reserveCapacity(underestimatedCount * 2)
+
+        for byte in self {
+            utf16.append(hexDigits[Int(byte >> 4)])
+            utf16.append(hexDigits[Int(byte & 0x0F)])
+        }
+
+        return String(utf16CodeUnits: utf16, count: utf16.count)
     }
 }
