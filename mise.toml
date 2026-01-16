@@ -49,12 +49,12 @@ run = "swiftformat Sources"
 description = "Check formatting (CI)"
 run = "swiftformat Sources --lint"
 
+[hooks.enter]
+run = "git config core.hooksPath .githooks 2>/dev/null || true"
+
 [tasks.setup]
-description = "Setup development environment"
-run = """
-hk install
-sed -i '' 's/exec mise/export PATH="$HOME\\/.local\\/bin:$PATH"; exec mise/' .git/hooks/pre-commit
-"""
+description = "Show git hooks status"
+run = "git config --get core.hooksPath || echo 'hooks not configured'"
 
 
 [tasks.clean]
@@ -68,6 +68,10 @@ depends = ["lint", "format:check"]
 [tasks.ci]
 description = "Full CI pipeline: build, then lint + format + test in parallel"
 run = [{ task = "build" }, { tasks = ["lint", "format:check", "test"] }]
+
+[tasks.pre-commit]
+description = "Run all pre-commit checks"
+run = "hk run pre-commit"
 
 [tasks.changelog]
 description = "Generate CHANGELOG.md"

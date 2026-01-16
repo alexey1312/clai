@@ -1,0 +1,11 @@
+# direnv integration for clai
+# Copy to .envrc and run: direnv allow
+
+if [ ! -f "./bin/mise" ]; then
+    echo "bin/mise not found"
+    return 1
+fi
+
+eval "$(./bin/mise activate bash)"
+mise trust mise.toml 2>/dev/null || true
+mise install

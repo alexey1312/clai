@@ -34,7 +34,7 @@ mise run lint               # SwiftLint strict mode
 mise run format             # Format with SwiftFormat
 mise run format:check       # Check formatting (CI)
 mise run clean              # Clean build artifacts
-mise run setup              # Install pre-commit hooks
+mise run setup              # Show git hooks status
 mise run pre-commit         # Run pre-commit on all files
 mise run changelog          # Generate CHANGELOG.md
 mise run changelog:unreleased  # Preview unreleased changes
