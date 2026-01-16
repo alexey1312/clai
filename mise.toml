@@ -8,11 +8,11 @@ disable_tools = ["python"]
 HK_MISE = "true"
 
 [tools]
-hk = "1.28.0"
+hk = "1.29.0"
 swiftformat = "0.58.7"
-swiftlint = "0.62.2"
-git-cliff = "2.10.1"
-xcsift = "1.0.18"
+swiftlint = "0.63.1"
+git-cliff = "2.11.0"
+xcsift = "1.0.21"
 pkl = "0.30.2"
 
 [tasks.build]
