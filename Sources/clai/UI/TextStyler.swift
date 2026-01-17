@@ -5,81 +5,114 @@ enum TextStyler {
     /// - Parameters:
     ///   - text: The text to style
     ///   - baseReset: The ANSI code to reset to after a colored block (default: Default FG `[39m`)
-    static func apply(_ text: String, baseReset: String = "\u{001B}[39m") -> String {
+    static func apply(_ text: String, baseReset: String = Theme.defaultColor) -> String {
         var result = ""
         let chars = Array(text)
-        var i = 0
+        var index = 0
         var inBold = false
         var inItalic = false
 
-        while i < chars.count {
-            // Code block (`...`) - Highest precedence, consumes content literally
-            if chars[i] == "`" {
-                // Find end of code block
-                var j = i + 1
-                while j < chars.count {
-                    if chars[j] == "`" { break }
-                    j += 1
-                }
-
-                // If we found an end backtick
-                if j < chars.count {
-                    // Output code block with color
-                    result += "\u{001B}[36m" // Cyan
-                    result += String(chars[i + 1 ..< j])
-                    result += baseReset // Reset to base color (default or header color)
-                    i = j + 1
-                } else {
-                    // Unclosed code block, treat start as literal
-                    result.append(chars[i])
-                    i += 1
-                }
+        while index < chars.count {
+            if processCodeBlock(chars, index: &index, result: &result, baseReset: baseReset) {
+                continue
             }
-            // Bold (**...**)
-            else if i + 1 < chars.count, chars[i] == "*", chars[i + 1] == "*" {
-                if inBold {
-                    result += "\u{001B}[22m" // Bold off
-                } else {
-                    result += "\u{001B}[1m" // Bold on
-                }
-                inBold.toggle()
-                i += 2
-            }
-            // Italic (_..._)
-            else if chars[i] == "_" {
-                let prev = i > 0 ? chars[i - 1] : " "
-                let next = i + 1 < chars.count ? chars[i + 1] : " "
 
-                let isPrevAlpha = prev.isLetter || prev.isNumber
-                let isNextAlpha = next.isLetter || next.isNumber
-
-                // Toggle Off: text_ or punct_
-                if inItalic, !isNextAlpha {
-                    result += "\u{001B}[23m"
-                    inItalic = false
-                    i += 1
-                }
-                // Toggle On: _text
-                else if !inItalic, !isPrevAlpha, isNextAlpha {
-                    result += "\u{001B}[3m"
-                    inItalic = true
-                    i += 1
-                } else {
-                    result.append(chars[i])
-                    i += 1
-                }
+            if processBold(chars, index: &index, result: &result, inBold: &inBold) {
+                continue
             }
+
+            if processItalic(chars, index: &index, result: &result, inItalic: &inItalic) {
+                continue
+            }
+
             // Regular character
-            else {
-                result.append(chars[i])
-                i += 1
-            }
+            result.append(chars[index])
+            index += 1
         }
 
         // Close any open styles at the end
-        if inBold { result += "\u{001B}[22m" }
-        if inItalic { result += "\u{001B}[23m" }
+        if inBold { result += Theme.boldOff }
+        if inItalic { result += Theme.italicOff }
 
         return result
+    }
+
+    private static func processCodeBlock(
+        _ chars: [Character],
+        index: inout Int,
+        result: inout String,
+        baseReset: String
+    ) -> Bool {
+        guard chars[index] == "`" else { return false }
+
+        // Find end of code block
+        var endIndex = index + 1
+        while endIndex < chars.count {
+            if chars[endIndex] == "`" { break }
+            endIndex += 1
+        }
+
+        // If we found an end backtick
+        if endIndex < chars.count {
+            // Output code block with color
+            result += Theme.code // Cyan
+            result += String(chars[index + 1 ..< endIndex])
+            result += baseReset // Reset to base color (default or header color)
+            index = endIndex + 1
+        } else {
+            // Unclosed code block, treat start as literal
+            result.append(chars[index])
+            index += 1
+        }
+        return true
+    }
+
+    private static func processBold(
+        _ chars: [Character],
+        index: inout Int,
+        result: inout String,
+        inBold: inout Bool
+    ) -> Bool {
+        guard index + 1 < chars.count, chars[index] == "*", chars[index + 1] == "*" else { return false }
+
+        if inBold {
+            result += Theme.boldOff
+        } else {
+            result += Theme.bold
+        }
+        inBold.toggle()
+        index += 2
+        return true
+    }
+
+    private static func processItalic(
+        _ chars: [Character],
+        index: inout Int,
+        result: inout String,
+        inItalic: inout Bool
+    ) -> Bool {
+        guard chars[index] == "_" else { return false }
+
+        let prev = index > 0 ? chars[index - 1] : " "
+        let next = index + 1 < chars.count ? chars[index + 1] : " "
+
+        let isPrevAlpha = prev.isLetter || prev.isNumber
+        let isNextAlpha = next.isLetter || next.isNumber
+
+        // Toggle Off: text_ or punct_
+        if inItalic, !isNextAlpha {
+            result += Theme.italicOff
+            inItalic = false
+            index += 1
+            return true
+        }
+        // Toggle On: _text
+        else if !inItalic, !isPrevAlpha, isNextAlpha {
+            result += Theme.italic
+            inItalic = true
+            index += 1
+            return true
+        }
+        return false
     }
 }
