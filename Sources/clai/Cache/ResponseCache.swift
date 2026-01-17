@@ -169,11 +169,22 @@ struct CachedResponse: Sendable {
 
 // MARK: - String Hashing Extension
 
+private let hexAlphabet = Array("0123456789abcdef".utf16)
+
 extension String {
     /// Compute SHA256 hash of the string
     var sha256Hash: String {
         let data = Data(utf8)
         let digest = SHA256.hash(data: data)
-        return digest.map { String(format: "%02x", $0) }.joined()
+
+        return String(unsafeUninitializedCapacity: 64) { buffer in
+            var ptr = buffer.baseAddress!
+            for byte in digest {
+                ptr[0] = UInt8(hexAlphabet[Int(byte >> 4)])
+                ptr[1] = UInt8(hexAlphabet[Int(byte & 0x0F)])
+                ptr += 2
+            }
+            return 64
+        }
     }
 }
