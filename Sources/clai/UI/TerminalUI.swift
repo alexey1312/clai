@@ -72,7 +72,7 @@ final class TerminalUI: @unchecked Sendable {
 
     func showSuccess(_ message: String) {
         #if os(Linux)
-            print("\u{001B}[32m✓ \(message)\u{001B}[0m")
+            print("\(Theme.success)✓ \(message)\(Theme.reset)")
         #else
             noora.success(.alert(TerminalText(stringLiteral: message)))
         #endif
@@ -80,7 +80,7 @@ final class TerminalUI: @unchecked Sendable {
 
     func showWarning(_ message: String) {
         #if os(Linux)
-            print("\u{001B}[33m⚠ \(message)\u{001B}[0m")
+            print("\(Theme.warning)⚠ \(message)\(Theme.reset)")
         #else
             noora.warning(.alert(TerminalText(stringLiteral: message)))
         #endif
@@ -88,7 +88,7 @@ final class TerminalUI: @unchecked Sendable {
 
     func showError(_ message: String) {
         #if os(Linux)
-            print("\u{001B}[31m✗ \(message)\u{001B}[0m")
+            print("\(Theme.error)✗ \(message)\(Theme.reset)")
         #else
             noora.error(.alert(TerminalText(stringLiteral: message)))
         #endif
@@ -99,7 +99,7 @@ final class TerminalUI: @unchecked Sendable {
     }
 
     func showHeader(_ text: String) {
-        print("\u{001B}[1m\(text)\u{001B}[0m")
+        print(Theme.applyBold(text))
     }
 
     func printLine(_ text: String = "") {
@@ -133,18 +133,18 @@ final class TerminalUI: @unchecked Sendable {
 
             // Headers (# ## ###)
             if lineStr.hasPrefix("### ") {
-                let content = TextStyler.apply(String(lineStr.dropFirst(4)), baseReset: "\u{001B}[1;36m")
-                print("\u{001B}[1;36m\(content)\u{001B}[0m")
+                let content = TextStyler.apply(String(lineStr.dropFirst(4)), baseReset: Theme.header3)
+                print("\(Theme.header3)\(content)\(Theme.reset)")
             } else if lineStr.hasPrefix("## ") {
-                let content = TextStyler.apply(String(lineStr.dropFirst(3)), baseReset: "\u{001B}[1;33m")
-                print("\u{001B}[1;33m\(content)\u{001B}[0m")
+                let content = TextStyler.apply(String(lineStr.dropFirst(3)), baseReset: Theme.header2)
+                print("\(Theme.header2)\(content)\(Theme.reset)")
             } else if lineStr.hasPrefix("# ") {
-                let content = TextStyler.apply(String(lineStr.dropFirst(2)), baseReset: "\u{001B}[1;32m")
-                print("\u{001B}[1;32m\(content)\u{001B}[0m")
+                let content = TextStyler.apply(String(lineStr.dropFirst(2)), baseReset: Theme.header1)
+                print("\(Theme.header1)\(content)\(Theme.reset)")
             }
             // Code blocks (```)
             else if lineStr.hasPrefix("```") {
-                print("\u{001B}[90m\(lineStr)\u{001B}[0m")
+                print("\(Theme.muted)\(lineStr)\(Theme.reset)")
             }
             // Bullet points
             else if lineStr.hasPrefix("- ") || lineStr.hasPrefix("* ") {
@@ -154,8 +154,11 @@ final class TerminalUI: @unchecked Sendable {
             // Blockquotes (> )
             else if lineStr.hasPrefix("> ") {
                 let content = String(lineStr.dropFirst(2))
-                // Gray bar (90m), Italic text (3m) - reset color (39m) and italic (23m)
-                print("  \u{001B}[90m│\u{001B}[39m \u{001B}[3m\(TextStyler.apply(content))\u{001B}[23m")
+                // Muted bar, Italic text
+                print(
+                    "  \(Theme.muted)│\(Theme.defaultColor) \(Theme.italic)" +
+                        "\(TextStyler.apply(content))\(Theme.italicOff)"
+                )
             }
             // Numbered lists
             else if let match = lineStr.range(of: #"^\d+\. "#, options: .regularExpression) {
@@ -202,13 +205,13 @@ final class TerminalUI: @unchecked Sendable {
         options: T.Type
     ) async -> T? where T.RawValue == String {
         print()
-        print("\u{001B}[1m\(question)\u{001B}[0m")
+        print(Theme.applyBold(question))
         print()
         for (index, option) in T.allCases.enumerated() {
-            print("  \u{001B}[90m[\u{001B}[36m\(index + 1)\u{001B}[90m]\u{001B}[0m \(option.rawValue)")
+            print("  \(Theme.muted)[\(Theme.accent)\(index + 1)\(Theme.muted)]\(Theme.reset) \(option.rawValue)")
         }
         print()
-        print("Choose \u{001B}[36m[1-\(T.allCases.count)]\u{001B}[0m: ", terminator: "")
+        print("Choose \(Theme.accent)[1-\(T.allCases.count)]\(Theme.reset): ", terminator: "")
         flushStdout()
 
         guard let line = readLine(),
@@ -225,7 +228,7 @@ final class TerminalUI: @unchecked Sendable {
     /// Prompt for MLX model download consent
     func promptMLXDownload() async -> ModelDownloadChoice? {
         print()
-        print("\u{001B}[1mNo local LLM provider found.\u{001B}[0m")
+        print(Theme.applyBold("No local LLM provider found."))
         print()
         print("clai can download a local model for offline use.")
         print("This is free and private - no data leaves your device.")
@@ -242,14 +245,14 @@ final class TerminalUI: @unchecked Sendable {
         guard !available.isEmpty else { return nil }
 
         print()
-        print("\u{001B}[1mMultiple providers available:\u{001B}[0m")
+        print(Theme.applyBold("Multiple providers available:"))
         print()
 
         for (index, provider) in available.enumerated() {
-            print("  \u{001B}[90m[\u{001B}[36m\(index + 1)\u{001B}[90m]\u{001B}[0m \(provider)")
+            print("  \(Theme.muted)[\(Theme.accent)\(index + 1)\(Theme.muted)]\(Theme.reset) \(provider)")
         }
         print()
-        print("Choose \u{001B}[36m[1-\(available.count)]\u{001B}[0m: ", terminator: "")
+        print("Choose \(Theme.accent)[1-\(available.count)]\(Theme.reset): ", terminator: "")
         flushStdout()
 
         guard let line = readLine(),
