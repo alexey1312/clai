@@ -28,6 +28,8 @@ Local-first, privacy-friendly.
 - 📊 **history** - Manage local history index
 - 🗂️ **cache** - View stats and clear response cache
 - 🤖 **models** - Manage local MLX and Ollama models
+- 🔌 **daemon** - Background daemon for low-latency shell integration
+- ⌨️ **completions** - Install AI-powered shell plugins with hotkeys
 - 📄 **docs** - Generate CLI documentation in Markdown
 - 📘 **man-page** - Generate man page for clai
 
@@ -111,20 +113,22 @@ clai chat
 
 ### Commands
 
-| Command    | Description                             | Example                                |
-| ---------- | --------------------------------------- | -------------------------------------- |
-| `explain`  | Understand what a command does          | `clai explain "chmod 755 script.sh"`   |
-| `suggest`  | Get commands for a task                 | `clai suggest "compress a folder"`     |
-| `examples` | Show practical usage examples           | `clai examples rsync`                  |
-| `man`      | AI-summarized man page                  | `clai man awk`                         |
-| `chat`     | Interactive conversation session        | `clai chat`                            |
-| `recall`   | Search history with natural language    | `clai recall "compress folder"`        |
-| `improve`  | Get command optimization suggestions    | `clai improve --aliases`               |
-| `history`  | Manage history index                    | `clai history stats`                   |
-| `cache`    | Manage response cache                   | `clai cache stats`                     |
-| `models`   | Manage local models                     | `clai models list`                     |
-| `docs`     | Generate Markdown documentation         | `clai docs -o docs/CLI.md`             |
-| `man-page` | Generate man page                       | `clai man-page -o man/clai.1`          |
+| Command       | Description                             | Example                                |
+| ------------- | --------------------------------------- | -------------------------------------- |
+| `explain`     | Understand what a command does          | `clai explain "chmod 755 script.sh"`   |
+| `suggest`     | Get commands for a task                 | `clai suggest "compress a folder"`     |
+| `examples`    | Show practical usage examples           | `clai examples rsync`                  |
+| `man`         | AI-summarized man page                  | `clai man awk`                         |
+| `chat`        | Interactive conversation session        | `clai chat`                            |
+| `recall`      | Search history with natural language    | `clai recall "compress folder"`        |
+| `improve`     | Get command optimization suggestions    | `clai improve --aliases`               |
+| `history`     | Manage history index                    | `clai history stats`                   |
+| `cache`       | Manage response cache                   | `clai cache stats`                     |
+| `models`      | Manage local models                     | `clai models list`                     |
+| `daemon`      | Manage background daemon                | `clai daemon start`                    |
+| `completions` | Install shell plugins                   | `clai completions install zsh`         |
+| `docs`        | Generate Markdown documentation         | `clai docs -o docs/CLI.md`             |
+| `man-page`    | Generate man page                       | `clai man-page -o man/clai.1`          |
 
 ### Options
 
@@ -199,22 +203,79 @@ CLAI_OLLAMA_HOST=...       # Override Ollama host
 CLAI_CACHE_ENABLED=true    # Enable/disable caching
 ```
 
-## Shell Completions
+## Shell Integration
 
-Generate completion scripts for your shell:
+Get AI assistance directly in your shell with hotkeys. No need to switch between terminal and clai.
+
+### Quick Setup
+
+```bash
+# 1. Install shell plugin
+clai completions install zsh   # or bash, fish
+
+# 2. Start daemon for fast responses (optional but recommended)
+clai daemon start
+
+# 3. Restart your shell or source config
+source ~/.zshrc
+```
+
+### Hotkeys
+
+After installing the shell plugin:
+
+| Hotkey | Action | Description |
+|--------|--------|-------------|
+| `Ctrl+X Ctrl+E` | Explain | Explain the command at cursor |
+| `Ctrl+X Ctrl+S` | Suggest | Convert task description to command |
+
+**Example workflow:**
+```bash
+# Type a command, press Ctrl+X Ctrl+E to explain it
+$ find . -name "*.swift" -mtime -7
+# Press Ctrl+X Ctrl+E → Shows explanation inline
+
+# Type a task description, press Ctrl+X Ctrl+S to get command
+$ # compress folder with gzip
+# Press Ctrl+X Ctrl+S → Replaces with: tar -czvf archive.tar.gz folder/
+```
+
+### Daemon
+
+The background daemon keeps the LLM provider loaded for instant responses (<200ms):
+
+```bash
+clai daemon start     # Start in background
+clai daemon status    # Check status (PID, uptime, provider)
+clai daemon stop      # Stop daemon
+clai daemon run       # Run in foreground (for debugging)
+```
+
+Without daemon, shell plugins fall back to direct `clai` calls (slower but works).
+
+### Plugin Management
+
+```bash
+clai completions install zsh      # Install plugin
+clai completions install bash
+clai completions install fish
+clai completions uninstall zsh    # Remove plugin
+clai completions list             # Show installed plugins
+```
+
+### Basic Shell Completions
+
+For standard tab-completion (command names and flags):
 
 ```bash
 # Zsh
-clai completions zsh > ~/.zsh/completions/_clai
-# Add to .zshrc: fpath=(~/.zsh/completions $fpath)
+clai completions generate zsh > ~/.zsh/completions/_clai
 
 # Bash
-clai completions bash > /etc/bash_completion.d/clai
-# Or for user install:
-clai completions bash > ~/.local/share/bash-completion/completions/clai
+clai completions generate bash > ~/.local/share/bash-completion/completions/clai
 
 # Fish
-clai completions fish > ~/.config/fish/completions/clai.fish
+clai completions generate fish > ~/.config/fish/completions/clai.fish
 ```
 
 ## Chat Mode

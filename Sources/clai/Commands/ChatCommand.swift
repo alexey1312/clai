@@ -103,7 +103,7 @@ struct ChatCommand: AsyncParsableCommand {
     private func showPrompt(messageCount: Int, terminal: TerminalUI) {
         let turnNumber = (messageCount / 2) + 1
         print("\(Theme.accent)[\(turnNumber)]\(Theme.reset) \(Theme.bold)>\(Theme.reset) ", terminator: "")
-        fflush(stdout)
+        fflush(nil)
     }
 
     private func showGoodbye(terminal: TerminalUI) {

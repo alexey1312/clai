@@ -2,24 +2,53 @@ amends "package://github.com/jdx/hk/releases/download/v1.28.0/hk@1.28.0#/Config.
 
 import "package://github.com/jdx/hk/releases/download/v1.28.0/hk@1.28.0#/Builtins.pkl"
 
-hooks {
-  ["pre-commit"] {
-    fix = true
-    steps {
-      ["swiftformat"] {
-        fix = "swiftformat {{files}}"
+// =============================================================================
+// hk Configuration for clai
+// =============================================================================
+
+local generated_excludes = List(
+    ".build/**",
+    "*.lock"
+)
+
+// =============================================================================
+// Swift Linters
+// =============================================================================
+
+local swift_linters = new Mapping<String, Step> {
+    ["swiftformat"] {
+        glob = List("*.swift")
+        exclude = generated_excludes
         check = "swiftformat --lint {{files}}"
-        types = List("swift")
-      }
-      ["swiftlint"] {
+        fix = "swiftformat {{files}}"
+        batch = true
+        stage = List("*.swift")
+        check_first = true
+        hide = true
+    }
+    ["swiftlint"] {
+        glob = List("*.swift")
+        exclude = generated_excludes
         check = "swiftlint lint --strict --quiet {{files}}"
-        types = List("swift")
-      }
+        batch = true
+        check_first = true
+        hide = true
     }
-  }
-  ["commit-msg"] {
-    steps {
-      ["conventional-commits"] = Builtins.check_conventional_commit
+}
+
+// =============================================================================
+// Hooks Configuration
+// =============================================================================
+
+hooks {
+    ["pre-commit"] {
+        fix = true
+        stash = "patch-file"
+        steps = swift_linters
     }
-  }
+    ["commit-msg"] {
+        steps {
+            ["conventional-commits"] = Builtins.check_conventional_commit
+        }
+    }
 }

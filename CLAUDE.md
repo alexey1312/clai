@@ -51,6 +51,10 @@ swift test                  # Test
 swift run clai explain ls   # Run the CLI
 ```
 
+## Important Rules
+
+**MUST run `mise run lint` after completing any code changes.** This ensures code style compliance before committing. The pre-commit hooks will reject non-compliant code, so always lint before finishing a task.
+
 ## Conventional Commits
 
 This project enforces [Conventional Commits](https://www.conventionalcommits.org/) via `hk` pre-commit hooks.
@@ -101,19 +105,26 @@ Clai.swift (entry point, ArgumentParser)
             ├── ExplainCommand, SuggestCommand, ExamplesCommand, ManCommand
             ├── ChatCommand (interactive conversation with history)
             ├── CacheCommand (stats, clear)
+            ├── CompletionsCommand (install/uninstall shell plugins)
+            ├── DaemonCommand (start/stop/status background daemon)
             ├── ModelsCommand (list, interactive management)
             ├── DocsCommand (generate markdown documentation)
             └── ManPageGenCommand (generate man pages)
-                    └── Core/ModelsManager (MLX/Ollama model operations)
-                    └── Core/MLXModelDiscovery (HuggingFace cache scanning)
-                    └── Core/CuratedModels (recommended MLX models list)
-            └── Core/ContextGatherer (fetches --help, man pages, tldr)
-            └── Core/PromptBuilder (constructs prompts per operation type)
-            └── Core/ChatMessage (conversation history management)
-            └── Core/ClaiEngine (orchestrates generation, filters <think> tags)
-            └── Providers/ProviderManager (selects available provider)
-            └── Cache/ResponseCache (SQLite cache, 7-day TTL)
-            └── UI/TerminalUI (Noora-based output rendering)
+    └── Daemon/
+            ├── DaemonServer (Unix socket server, request routing)
+            ├── DaemonClient (client for shell plugins)
+            └── DaemonProtocol (JSON wire protocol, request/response types)
+    └── Core/
+            ├── ModelsManager (MLX/Ollama model operations)
+            ├── MLXModelDiscovery (HuggingFace cache scanning)
+            ├── CuratedModels (recommended MLX models list)
+            ├── ContextGatherer (fetches --help, man pages, tldr)
+            ├── PromptBuilder (constructs prompts per operation type)
+            ├── ChatMessage (conversation history management)
+            └── ClaiEngine (orchestrates generation, filters <think> tags)
+    └── Providers/ProviderManager (selects available provider)
+    └── Cache/ResponseCache (SQLite cache, 7-day TTL)
+    └── UI/TerminalUI (Noora-based output rendering)
 ```
 
 ### Key Dependencies
@@ -142,6 +153,49 @@ Clai.swift (entry point, ArgumentParser)
 - `clai cache stats` — Show cache statistics (entries, size, path)
 - `clai cache clear` — Clear all cached responses
 - Cache stored in `~/Library/Caches/clai/clai_cache.sqlite`
+
+### Shell Integration
+Background daemon with Unix socket IPC for low-latency AI assistance directly in the shell.
+
+**Daemon Commands:**
+- `clai daemon start` — Start background daemon
+- `clai daemon stop` — Stop daemon (graceful shutdown)
+- `clai daemon status` — Check daemon status (PID, uptime, provider)
+- `clai daemon run` — Run in foreground (for debugging)
+
+**Shell Plugin Installation:**
+```bash
+clai completions install zsh    # Install zsh plugin
+clai completions install bash   # Install bash plugin
+clai completions install fish   # Install fish plugin
+clai completions uninstall zsh  # Remove plugin
+clai completions list           # Show installed plugins
+```
+
+**Hotkeys (after plugin install):**
+- `Ctrl+X Ctrl+E` — Explain command at cursor
+- `Ctrl+X Ctrl+S` — Suggest command from natural language task
+
+**Architecture:**
+- Socket: `~/.clai/clai.sock` (Unix domain socket)
+- PID file: `~/.clai/daemon.pid`
+- Log file: `~/.clai/daemon.log`
+- Plugins: `~/.clai/plugins/` (zsh/bash) or `~/.config/fish/conf.d/` (fish)
+
+**Protocol:** JSON over Unix socket with newline delimiter
+```json
+// Request types
+{"ping": {}}
+{"complete": {"partial": "git reb", "shell": "zsh"}}
+{"explain": {"command": "find . -name '*.swift'"}}
+{"suggest": {"task": "compress folder"}}
+
+// Response types
+{"pong": {"uptimeSeconds": 123.4, "provider": "ollama", "providerReady": true}}
+{"success": {"completions": [{"completion": "git rebase", "description": "...", "score": 1.0}]}}
+{"success": {"explanation": {"explanation": "...", "isDestructive": false, "warnings": []}}}
+{"error": {"message": "...", "code": "providerUnavailable"}}
+```
 
 ### History Intelligence
 Local semantic search over your shell history (zsh, bash, fish). All data stays local.
