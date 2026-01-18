@@ -1,11 +1,5 @@
 import Foundation
 
-#if canImport(Glibc)
-    @preconcurrency import Glibc
-#elseif canImport(Darwin)
-    import Darwin
-#endif
-
 /// A simple CLI spinner for indicating ongoing operations
 final class Spinner: Sendable {
     private let task: Task<Void, Never>
@@ -42,17 +36,9 @@ final class Spinner: Sendable {
     }
 }
 
+/// Flush stdout in a concurrency-safe manner using FileHandle
+/// This avoids Swift 6 concurrency errors with global `stdout` variable on Linux
 @inline(__always)
 private func safeFlush() {
-    #if os(Linux)
-        // On Linux, accessing the global `stdout` variable from a concurrent context
-        // triggers a Swift 6 concurrency error. We use `FileHandle` instead, or
-        // we can try to suppress it. But sticking to FileHandle for Linux avoids the
-        // global variable access issue entirely.
-        // Note: synchronize() is deprecated but functional.
-        // Alternatively, we can use C-interop correctly, but `stdout` is a pointer.
-        fflush(stdout)
-    #else
-        fflush(stdout)
-    #endif
+    try? FileHandle.standardOutput.synchronize()
 }

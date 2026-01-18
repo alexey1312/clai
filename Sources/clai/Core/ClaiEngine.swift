@@ -62,7 +62,7 @@ final class ClaiEngine: Sendable {
 
     /// Suggest commands for a natural language task
     func suggest(task: String) async throws {
-        let prompt = await terminal.withSpinner("Finding commands...") {
+        let prompt = try await terminal.withSpinner("Finding commands...") {
             PromptBuilder.buildSuggestPrompt(task: task)
         }
 
