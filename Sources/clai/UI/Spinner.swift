@@ -36,9 +36,9 @@ final class Spinner: Sendable {
     }
 }
 
-/// Flush stdout in a concurrency-safe manner using FileHandle
-/// This avoids Swift 6 concurrency errors with global `stdout` variable on Linux
 @inline(__always)
 private func safeFlush() {
+    // FileHandle.synchronize() is deprecated but thread-safe and works on Linux/macOS
+    // without triggering Swift 6 strict concurrency errors about global `stdout` access.
     try? FileHandle.standardOutput.synchronize()
 }
