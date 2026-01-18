@@ -3,16 +3,8 @@ import Foundation
 
 #if canImport(Darwin)
     import Darwin
-
-    private nonisolated(unsafe) let stdoutStream = Darwin.stdout
 #elseif canImport(Glibc)
-    @preconcurrency import Glibc
-
-    // Use unsafeBitCast to avoid concurrency warnings on Linux's stdout global
-    private nonisolated(unsafe) let stdoutStream: UnsafeMutablePointer<FILE>? = unsafeBitCast(
-        Glibc.stdout,
-        to: UnsafeMutablePointer<FILE>?.self
-    )
+    import Glibc
 #endif
 
 struct ChatCommand: AsyncParsableCommand {
@@ -111,7 +103,7 @@ struct ChatCommand: AsyncParsableCommand {
     private func showPrompt(messageCount: Int, terminal: TerminalUI) {
         let turnNumber = (messageCount / 2) + 1
         print("\(Theme.accent)[\(turnNumber)]\(Theme.reset) \(Theme.bold)>\(Theme.reset) ", terminator: "")
-        fflush(stdoutStream)
+        fflush(nil)
     }
 
     private func showGoodbye(terminal: TerminalUI) {
