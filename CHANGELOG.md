@@ -2,6 +2,57 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.6] - 2026-01-18
+
+### Features
+
+- **ui**: Add blockquote styling to terminal output  by @google-labs-jules[bot] in [#5](https://github.com/alexey1312/clai/pull/5)
+
+- **ux**: Make suggest command interactive when arguments missing  by @google-labs-jules[bot] in [#9](https://github.com/alexey1312/clai/pull/9)
+
+- Enable SQLite WAL mode and optimize synchronous settings in ResponseCache  by @google-labs-jules[bot] in [#11](https://github.com/alexey1312/clai/pull/11)
+
+- **ui**: Enable inline styles in headers  by @google-labs-jules[bot] in [#10](https://github.com/alexey1312/clai/pull/10)
+
+- **docs**: Add docs and man-page generation commands by @alexey1312
+
+
+### Miscellaneous Tasks
+
+- **ui**: Enhance interactive prompts with color  by @google-labs-jules[bot] in [#12](https://github.com/alexey1312/clai/pull/12)
+
+- **mise**: Update xcsift by @alexey1312
+
+
+### Other
+
+- Fix nested ANSI style rendering in CLI output  by @google-labs-jules[bot] in [#4](https://github.com/alexey1312/clai/pull/4)
+
+- ⚡ Bolt: Add index on ResponseCache.createdAt  by @google-labs-jules[bot] in [#7](https://github.com/alexey1312/clai/pull/7)
+
+- 🎨 Palette: Add italic support and fix nested styling  by @google-labs-jules[bot] in [#6](https://github.com/alexey1312/clai/pull/6)
+
+- **deps**: Update mise and dev tool versions by @alexey1312
+
+- **hooks**: Migrate to static .githooks directory by @alexey1312
+
+
+### Performance
+
+- Optimize cache cleanup to improve startup time  by @google-labs-jules[bot] in [#8](https://github.com/alexey1312/clai/pull/8)
+
+- **cache**: Optimize sha256Hash hex encoding  by @google-labs-jules[bot] in [#26](https://github.com/alexey1312/clai/pull/26)
+
+- **providers**: Parallelize provider availability checks  by @google-labs-jules[bot] in [#28](https://github.com/alexey1312/clai/pull/28)
+
+
+### Styling
+
+- **ui**: Harmonize ANSI color palette using Theme enum  by @google-labs-jules[bot] in [#25](https://github.com/alexey1312/clai/pull/25)
+
+- **ui**: Add animated spinner for long-running operations  by @google-labs-jules[bot] in [#27](https://github.com/alexey1312/clai/pull/27)
+
+
 ## [1.0.5] - 2025-12-28
 
 ### Features
