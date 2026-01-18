@@ -97,31 +97,96 @@ final class ProviderManager: Sendable {
 // MARK: - Provider Implementations
 
 /// FoundationModel provider (macOS 26+)
-struct FoundationModelProvider: LLMProvider {
-    let name = "FoundationModel"
-    let supportsStreaming = true // Apple's FoundationModel supports streaming (not yet implemented)
+#if canImport(FoundationModels)
+    import FoundationModels
 
-    static func createIfAvailable() async -> FoundationModelProvider? {
-        // Check if FoundationModel is available (macOS 26+)
-        guard PlatformDetector.current.supportsFoundationModel else {
-            return nil
+    struct FoundationModelProvider: LLMProvider {
+        let name = "FoundationModel"
+        let supportsStreaming = true
+
+        private let _model: any Sendable
+        private let _session: any Sendable
+
+        @available(macOS 26.0, iOS 26.0, *)
+        private var model: FoundationModels.SystemLanguageModel {
+            // swiftlint:disable:next force_cast
+            _model as! FoundationModels.SystemLanguageModel
         }
-        // Note: FoundationModel requires macOS 26+ which isn't widely available yet
-        // For now, return nil even if platform check passes since the API isn't stable
-        return nil
-    }
 
-    func generate(prompt: String) async throws -> String {
-        // FoundationModel implementation would go here when macOS 26 is available
-        throw ClaiError.providerUnavailable("FoundationModel requires macOS 26+")
-    }
+        @available(macOS 26.0, iOS 26.0, *)
+        private var session: FoundationModels.LanguageModelSession {
+            // swiftlint:disable:next force_cast
+            _session as! FoundationModels.LanguageModelSession
+        }
 
-    func generateStreaming(
-        prompt: String, onChunk: @escaping @Sendable (String) -> Void
-    ) async throws -> String {
-        throw ClaiError.providerUnavailable("FoundationModel requires macOS 26+")
+        @available(macOS 26.0, iOS 26.0, *)
+        private init(model: FoundationModels.SystemLanguageModel) {
+            _model = model
+            _session = FoundationModels.LanguageModelSession(model: model)
+        }
+
+        static func createIfAvailable() async -> FoundationModelProvider? {
+            guard #available(macOS 26.0, iOS 26.0, *) else {
+                return nil
+            }
+            guard PlatformDetector.current.supportsFoundationModel else {
+                return nil
+            }
+
+            let model = FoundationModels.SystemLanguageModel.default
+            if case .unavailable = model.availability {
+                return nil
+            }
+
+            return FoundationModelProvider(model: model)
+        }
+
+        func generate(prompt: String) async throws -> String {
+            guard #available(macOS 26.0, iOS 26.0, *) else {
+                throw ClaiError.providerUnavailable("FoundationModel requires macOS 26+")
+            }
+            let response = try await session.respond(to: prompt)
+            return response.content
+        }
+
+        func generateStreaming(
+            prompt: String, onChunk: @escaping @Sendable (String) -> Void
+        ) async throws -> String {
+            guard #available(macOS 26.0, iOS 26.0, *) else {
+                throw ClaiError.providerUnavailable("FoundationModel requires macOS 26+")
+            }
+            var fullResponse = ""
+            let stream = session.streamResponse(to: prompt)
+            for try await snapshot in stream {
+                let newContent = String(snapshot.content.dropFirst(fullResponse.count))
+                if !newContent.isEmpty {
+                    onChunk(newContent)
+                }
+                fullResponse = snapshot.content
+            }
+            return fullResponse
+        }
     }
-}
+#else
+    struct FoundationModelProvider: LLMProvider {
+        let name = "FoundationModel"
+        let supportsStreaming = true
+
+        static func createIfAvailable() async -> FoundationModelProvider? {
+            nil
+        }
+
+        func generate(prompt: String) async throws -> String {
+            throw ClaiError.providerUnavailable("FoundationModel not available")
+        }
+
+        func generateStreaming(
+            prompt: String, onChunk: @escaping @Sendable (String) -> Void
+        ) async throws -> String {
+            throw ClaiError.providerUnavailable("FoundationModel not available")
+        }
+    }
+#endif
 
 /// MLX provider for Apple Silicon
 struct MLXProvider: LLMProvider {
@@ -130,11 +195,11 @@ struct MLXProvider: LLMProvider {
 
     #if canImport(MLXLLM)
         private let model: MLXLanguageModel
-        private let session: LanguageModelSession
+        private let session: AnyLanguageModel.LanguageModelSession
 
         private init(model: MLXLanguageModel) {
             self.model = model
-            session = LanguageModelSession(model: model)
+            session = AnyLanguageModel.LanguageModelSession(model: model)
         }
 
         static func createIfAvailable() async -> MLXProvider? {
@@ -238,11 +303,11 @@ struct OllamaProvider: LLMProvider {
     let name = "Ollama"
     let supportsStreaming = true
     private let model: OllamaLanguageModel
-    private let session: LanguageModelSession
+    private let session: AnyLanguageModel.LanguageModelSession
 
     init(modelName: String = "llama3.2") {
         model = OllamaLanguageModel(model: modelName)
-        session = LanguageModelSession(model: model)
+        session = AnyLanguageModel.LanguageModelSession(model: model)
     }
 
     static func createIfAvailable() async -> OllamaProvider? {
@@ -332,11 +397,11 @@ struct AnthropicProvider: LLMProvider {
     let name = "Anthropic"
     let supportsStreaming = true
     private let model: AnthropicLanguageModel
-    private let session: LanguageModelSession
+    private let session: AnyLanguageModel.LanguageModelSession
 
     init(apiKey: String, modelName: String = "claude-sonnet-4-5-20250929") {
         model = AnthropicLanguageModel(apiKey: apiKey, model: modelName)
-        session = LanguageModelSession(model: model)
+        session = AnyLanguageModel.LanguageModelSession(model: model)
     }
 
     static func createIfAvailable() -> AnthropicProvider? {
@@ -375,11 +440,11 @@ struct OpenAIProvider: LLMProvider {
     let name = "OpenAI"
     let supportsStreaming = true
     private let model: OpenAILanguageModel
-    private let session: LanguageModelSession
+    private let session: AnyLanguageModel.LanguageModelSession
 
     init(apiKey: String, modelName: String = "gpt-4o-mini") {
         model = OpenAILanguageModel(apiKey: apiKey, model: modelName)
-        session = LanguageModelSession(model: model)
+        session = AnyLanguageModel.LanguageModelSession(model: model)
     }
 
     static func createIfAvailable() -> OpenAIProvider? {

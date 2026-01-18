@@ -206,6 +206,11 @@ final class TerminalUI: @unchecked Sendable {
         print()
     }
 
+    func showProviderAttribution(_ providerName: String) {
+        print()
+        print("\(Theme.muted)— by \(providerName)\(Theme.reset)")
+    }
+
     // MARK: - Prompts
 
     func promptYesNo(_ question: String) async -> Bool {

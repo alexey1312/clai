@@ -12,12 +12,12 @@ env:
 jobs:
   lint:
     name: Lint
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install mise
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v3
 
       - name: Check formatting (SwiftFormat)
         run: mise run format:check
@@ -27,13 +27,13 @@ jobs:
 
   build-macos:
     name: Build & Test (macOS)
-    runs-on: macos-15
+    runs-on: macos-26
     needs: lint
     env:
-      DEVELOPER_DIR: "/Applications/Xcode_16.3.app/Contents/Developer"
+      DEVELOPER_DIR: "/Applications/Xcode_26.2.app/Contents/Developer"
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Cache SPM dependencies
         uses: actions/cache@v4
@@ -44,7 +44,7 @@ jobs:
             ${{ runner.os }}-spm-
 
       - name: Install mise
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v3
 
       - name: Show Swift version
         run: swift --version
@@ -62,7 +62,7 @@ jobs:
     container:
       image: swift:6.1
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Cache SPM dependencies
         uses: actions/cache@v4

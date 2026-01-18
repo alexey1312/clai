@@ -12,6 +12,13 @@ private func disableStdoutBuffering() {
     #endif
 }
 
+/// Result of generating an LLM response
+struct GenerationResult {
+    let content: String
+    let wasStreamed: Bool
+    let providerName: String
+}
+
 /// Core engine for clai - handles context gathering, prompt construction, and LLM interaction
 final class ClaiEngine: Sendable {
     private let options: GlobalOptions
@@ -50,14 +57,15 @@ final class ClaiEngine: Sendable {
 
         let prompt = PromptBuilder.buildExplainPrompt(command: command, context: context)
 
-        let (response, wasStreamed) = try await generateResponse(
+        let result = try await generateResponse(
             prompt: prompt,
             cacheKey: makeCacheKey(command: command, mode: "explain"),
             loadingMessage: "Generating explanation..."
         )
-        if !wasStreamed {
-            terminal.showResponse(response, format: options.json ? .json : .plain)
+        if !result.wasStreamed {
+            terminal.showResponse(result.content, format: options.json ? .json : .plain)
         }
+        terminal.showProviderAttribution(result.providerName)
     }
 
     /// Suggest commands for a natural language task
@@ -66,14 +74,15 @@ final class ClaiEngine: Sendable {
             PromptBuilder.buildSuggestPrompt(task: task)
         }
 
-        let (response, wasStreamed) = try await generateResponse(
+        let result = try await generateResponse(
             prompt: prompt,
             cacheKey: makeCacheKey(command: task, mode: "suggest"),
             loadingMessage: "Thinking..."
         )
-        if !wasStreamed {
-            terminal.showResponse(response, format: options.json ? .json : .plain)
+        if !result.wasStreamed {
+            terminal.showResponse(result.content, format: options.json ? .json : .plain)
         }
+        terminal.showProviderAttribution(result.providerName)
     }
 
     /// Show practical examples for a command
@@ -83,14 +92,15 @@ final class ClaiEngine: Sendable {
         }
         let prompt = PromptBuilder.buildExamplesPrompt(command: command, context: context)
 
-        let (response, wasStreamed) = try await generateResponse(
+        let result = try await generateResponse(
             prompt: prompt,
             cacheKey: makeCacheKey(command: command, mode: "examples"),
             loadingMessage: "Creating examples..."
         )
-        if !wasStreamed {
-            terminal.showResponse(response, format: options.json ? .json : .plain)
+        if !result.wasStreamed {
+            terminal.showResponse(result.content, format: options.json ? .json : .plain)
         }
+        terminal.showProviderAttribution(result.providerName)
     }
 
     /// Summarize a man page
@@ -100,32 +110,33 @@ final class ClaiEngine: Sendable {
         }
         let prompt = PromptBuilder.buildManSummaryPrompt(command: command, manContent: manContent)
 
-        let (response, wasStreamed) = try await generateResponse(
+        let result = try await generateResponse(
             prompt: prompt,
             cacheKey: makeCacheKey(command: command, mode: "man"),
             loadingMessage: "Summarizing..."
         )
-        if !wasStreamed {
-            terminal.showResponse(response, format: options.json ? .json : .plain)
+        if !result.wasStreamed {
+            terminal.showResponse(result.content, format: options.json ? .json : .plain)
         }
+        terminal.showProviderAttribution(result.providerName)
     }
 
     /// Process a chat message and return the response
     /// - Parameters:
     ///   - message: The user's message
     ///   - history: Previous messages in the conversation
-    /// - Returns: The assistant's response
-    func chat(message: String, history: [ChatMessage]) async throws -> String {
+    /// - Returns: The assistant's response and provider name
+    func chat(message: String, history: [ChatMessage]) async throws -> (String, String) {
         let prompt = PromptBuilder.buildChatPrompt(message: message, history: history)
 
         // Chat doesn't use caching - each conversation is unique
-        let (response, _) = try await generateResponse(
+        let result = try await generateResponse(
             prompt: prompt,
             cacheKey: nil,
             loadingMessage: "Thinking..."
         )
 
-        return response
+        return (result.content, result.providerName)
     }
 
     private func makeCacheKey(command: String, mode: String) -> String? {
@@ -140,13 +151,13 @@ final class ClaiEngine: Sendable {
         prompt: String,
         cacheKey: String?,
         loadingMessage: String = "Generating response..."
-    ) async throws -> (String, Bool) {
+    ) async throws -> GenerationResult {
         // Check cache first (if not disabled)
         if let cacheKey, let cache, let cached = try? cache.get(key: cacheKey) {
             if options.verbose {
                 terminal.showInfo("Using cached response from \(cached.provider)")
             }
-            return (cached.response, false)
+            return GenerationResult(content: cached.response, wasStreamed: false, providerName: cached.provider)
         }
 
         let provider = try await providerManager.getAvailableProvider()
@@ -198,7 +209,7 @@ final class ClaiEngine: Sendable {
             try? cache.set(key: cacheKey, response: response, provider: provider.name)
         }
 
-        return (response, wasStreamed)
+        return GenerationResult(content: response, wasStreamed: wasStreamed, providerName: provider.name)
     }
 
     /// Remove <think>...</think> tags from model output

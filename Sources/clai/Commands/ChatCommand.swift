@@ -201,7 +201,7 @@ struct ChatCommand: AsyncParsableCommand {
         print() // Blank line before response
 
         // Generate response
-        let response = try await engine.chat(message: message, history: historyForPrompt)
+        let (response, providerName) = try await engine.chat(message: message, history: historyForPrompt)
 
         // Add response to history
         session.addAssistantMessage(response)
@@ -211,6 +211,6 @@ struct ChatCommand: AsyncParsableCommand {
             terminal.showResponse(response, format: options.json ? .json : .plain)
         }
 
-        print() // Blank line after response
+        terminal.showProviderAttribution(providerName)
     }
 }
