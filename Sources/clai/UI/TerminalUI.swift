@@ -1,5 +1,11 @@
 import Foundation
 
+#if canImport(Glibc)
+    import Glibc
+#elseif canImport(Darwin)
+    import Darwin
+#endif
+
 #if !os(Linux)
     import Noora
 #endif
@@ -41,6 +47,19 @@ final class TerminalUI: @unchecked Sendable {
     }
 
     // MARK: - Progress Indicators
+
+    /// Execute an operation with an animated spinner
+    func withSpinner<T>(_ message: String, operation: () async throws -> T) async throws -> T {
+        // If not a TTY or in verbose mode, fall back to simple logging
+        guard isatty(STDOUT_FILENO) != 0, !verbose else {
+            showProgress(message)
+            return try await operation()
+        }
+
+        let spinner = Spinner(message: message)
+        defer { spinner.stop() }
+        return try await operation()
+    }
 
     func showProgress(_ message: String) {
         print("⏳ \(message)")
