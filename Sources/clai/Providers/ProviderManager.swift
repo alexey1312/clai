@@ -31,14 +31,42 @@ final class ProviderManager: Sendable {
             return provider
         }
 
-        // Otherwise, try the fallback chain
-        for providerType in defaultChain {
-            if let provider = try await createProvider(providerType) {
-                return provider
+        // Otherwise, check providers concurrently while maintaining priority
+        return try await withThrowingTaskGroup(of: (Int, LLMProvider?).self) { group in
+            for (index, providerType) in defaultChain.enumerated() {
+                group.addTask {
+                    let provider = try await self.createProvider(providerType)
+                    return (index, provider)
+                }
             }
-        }
 
-        throw ClaiError.noProviderAvailable
+            var results: [Int: LLMProvider?] = [:]
+            var nextIndexToCheck = 0
+
+            // Collect results as they come in
+            for try await (index, provider) in group {
+                results[index] = provider
+
+                // Check if we can satisfy the request with what we have so far
+                while nextIndexToCheck < defaultChain.count {
+                    // If we don't have the result for the current priority yet, stop and wait
+                    guard let resultContainer = results[nextIndexToCheck] else {
+                        break
+                    }
+
+                    // If we have a provider, return it!
+                    if let foundProvider = resultContainer {
+                        group.cancelAll()
+                        return foundProvider
+                    }
+
+                    // If result was nil (not available), move to next priority
+                    nextIndexToCheck += 1
+                }
+            }
+
+            throw ClaiError.noProviderAvailable
+        }
     }
 
     private func createProvider(_ type: Provider) async throws -> LLMProvider? {
