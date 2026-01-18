@@ -1,5 +1,14 @@
+// swiftlint:disable file_length
 import AnyLanguageModel
 import Foundation
+
+#if canImport(MLXLMCommon)
+    import MLXLMCommon
+#endif
+
+#if !os(Linux)
+    import Noora
+#endif
 
 /// Protocol for LLM providers
 protocol LLMProvider: Sendable {
@@ -160,13 +169,28 @@ struct MLXProvider: LLMProvider {
                 smallModelId
             }
 
-            // Check if model needs to be downloaded and show indication
+            // Pre-download model with progress display if not already cached
             if !MLXModelDiscovery.isModelDownloaded(modelId) {
                 let modelName = modelId.replacingOccurrences(of: "mlx-community/", with: "")
                 let estimatedSize = CuratedModels.getEstimatedSize(for: modelId)
-                print("Downloading MLX model: \(modelName)")
-                print("This is a one-time download (\(estimatedSize)). Please wait...")
-                print("")
+
+                do {
+                    try await Noora().progressBarStep(
+                        message: "Downloading \(modelName) (\(estimatedSize))",
+                        successMessage: "Model downloaded",
+                        errorMessage: "Download failed"
+                    ) { updateProgress in
+                        // Bridge sync callback to async Noora update using unsafe capture
+                        nonisolated(unsafe) let unsafeProgress = updateProgress
+                        _ = try await MLXLMCommon.loadModel(id: modelId) { progress in
+                            Task {
+                                await unsafeProgress(progress.fractionCompleted)
+                            }
+                        }
+                    }
+                } catch {
+                    Noora().warning(.alert("Download interrupted. Will retry..."))
+                }
             }
 
             let model = MLXLanguageModel(modelId: modelId)
@@ -225,18 +249,57 @@ struct OllamaProvider: LLMProvider {
         guard await OllamaChecker.isAvailable() else {
             return nil
         }
-        // Get first available model, prefer llama3.2 or qwen3
-        let models = await OllamaChecker.availableModels()
-        let preferredModels = ["llama3.2", "qwen3", "llama3.1", "mistral", "gemma2"]
 
-        var selectedModel = "llama3.2"
+        // Get available models
+        var models = await OllamaChecker.availableModels()
+        let preferredModels = ["llama3.2", "qwen3", "llama3.1", "mistral", "gemma2"]
+        let defaultModel = "llama3.2"
+
+        // If no models available, offer to download one
+        if models.isEmpty {
+            #if !os(Linux)
+                do {
+                    try await Noora().progressBarStep(
+                        message: "Downloading Ollama model: \(defaultModel)",
+                        successMessage: "Model downloaded",
+                        errorMessage: "Download failed"
+                    ) { updateProgress in
+                        nonisolated(unsafe) let unsafeProgress = updateProgress
+                        _ = try await OllamaChecker.pullModel(defaultModel) { completed, total in
+                            let fraction = total > 0 ? Double(completed) / Double(total) : 0
+                            Task {
+                                await unsafeProgress(fraction)
+                            }
+                        }
+                    }
+                    models = [defaultModel]
+                } catch {
+                    Noora().warning(.alert("Failed to download Ollama model: \(error.localizedDescription)"))
+                    return nil
+                }
+            #else
+                // On Linux, download without Noora progress UI
+                do {
+                    print("Downloading Ollama model: \(defaultModel)...")
+                    _ = try await OllamaChecker.pullModel(defaultModel) { _, _ in }
+                    print("Model downloaded")
+                    models = [defaultModel]
+                } catch {
+                    print("Failed to download: \(error.localizedDescription)")
+                    return nil
+                }
+            #endif
+        }
+
+        // Select preferred model from available ones
+        var selectedModel = defaultModel
         for preferred in preferredModels where models.contains(where: { $0.hasPrefix(preferred) }) {
             selectedModel = models.first(where: { $0.hasPrefix(preferred) }) ?? preferred
             break
         }
 
         // If no preferred model found, use first available
-        if !models.isEmpty, !preferredModels.contains(where: { models.contains($0) }) {
+        if !models.isEmpty, !preferredModels.contains(where: { pref in models.contains { $0.hasPrefix(pref) } }) {
             selectedModel = models[0]
         }
 

@@ -1,5 +1,5 @@
 {
-  "originHash" : "58837387f19effe271ed59470f8b8b92ee41c93c8a8404c48f562a537a95dac9",
+  "originHash" : "e6aeae0320f14099b931dce6507d0813040bf313470695e2084c5949ba2259ec",
   "pins" : [
     {
       "identity" : "anylanguagemodel",
@@ -51,8 +51,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/tuist/Noora",
       "state" : {
-        "revision" : "99d3bef655819d530ad467c017ae4ff7db27b0a3",
-        "version" : "0.51.3"
+        "revision" : "c554521d3723d65fc2945f05150107cc8b2974ec",
+        "version" : "0.53.0"
       }
     },
     {
@@ -96,8 +96,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-argument-parser",
       "state" : {
-        "revision" : "cdd0ef3755280949551dc26dee5de9ddeda89f54",
-        "version" : "1.6.2"
+        "revision" : "c5d11a805e765f52ba34ec7284bd4fcd6ba68615",
+        "version" : "1.7.0"
       }
     },
     {
@@ -186,8 +186,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/jpsim/Yams",
       "state" : {
-        "revision" : "3d6871d5b4a5cd519adf233fbb576e0a2af71c17",
-        "version" : "5.4.0"
+        "revision" : "51b5127c7fb6ffac106ad6d199aaa33c5024895f",
+        "version" : "6.2.0"
       }
     }
   ],

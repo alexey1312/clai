@@ -14,7 +14,7 @@ import PackageDescription
     let platformTargetDependencies: [Target.Dependency] = []
 #else
     let platformDependencies: [Package.Dependency] = [
-        .package(url: "https://github.com/tuist/Noora", from: "0.15.0"),
+        .package(url: "https://github.com/tuist/Noora", from: "0.53.0"),
     ]
     let platformTargetDependencies: [Target.Dependency] = [
         .product(name: "Noora", package: "Noora"),
@@ -30,15 +30,15 @@ let package = Package(
         .executable(name: "clai", targets: ["clai"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.5.0"),
-        .package(url: "https://github.com/stephencelis/SQLite.swift", from: "0.15.3"),
+        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.7.0"),
+        .package(url: "https://github.com/stephencelis/SQLite.swift", from: "0.15.4"),
         .package(url: "https://github.com/apple/swift-crypto", from: "4.2.0"),
         .package(
             url: "https://github.com/mattt/AnyLanguageModel",
             branch: "main",
             traits: anyLanguageModelTraits
         ),
-        .package(url: "https://github.com/jpsim/Yams", from: "5.1.3"),
+        .package(url: "https://github.com/jpsim/Yams", from: "6.2.0"),
     ] + platformDependencies,
     targets: [
         .executableTarget(

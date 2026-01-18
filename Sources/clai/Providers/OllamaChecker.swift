@@ -79,6 +79,82 @@ enum OllamaChecker {
             return []
         }
     }
+
+    /// Pull (download) a model from Ollama library with progress reporting
+    /// - Parameters:
+    ///   - model: Model name to pull (e.g., "llama3.2")
+    ///   - host: Ollama host URL
+    ///   - onProgress: Progress callback with (completed bytes, total bytes)
+    /// - Returns: True if pull succeeded
+    static func pullModel(
+        _ model: String,
+        host: String = defaultHost,
+        onProgress: @escaping @Sendable (Int64, Int64) -> Void
+    ) async throws -> Bool {
+        guard let url = URL(string: "\(host)/api/pull") else {
+            throw OllamaError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body = OllamaPullRequest(model: model, stream: true)
+        request.httpBody = try JSONEncoder().encode(body)
+
+        let (bytes, response) = try await URLSession.shared.bytes(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200
+        else {
+            throw OllamaError.pullFailed(model)
+        }
+
+        var lastTotal: Int64 = 0
+        var lastCompleted: Int64 = 0
+
+        for try await line in bytes.lines {
+            guard let data = line.data(using: .utf8) else { continue }
+
+            if let pullResponse = try? JSONDecoder().decode(OllamaPullResponse.self, from: data) {
+                if let total = pullResponse.total, let completed = pullResponse.completed {
+                    lastTotal = total
+                    lastCompleted = completed
+                    onProgress(completed, total)
+                }
+
+                if pullResponse.status == "success" {
+                    return true
+                }
+
+                if let error = pullResponse.error {
+                    throw OllamaError.pullError(error)
+                }
+            }
+        }
+
+        // If we got here with some progress, consider it success
+        return lastCompleted > 0 && lastCompleted >= lastTotal
+    }
+}
+
+// MARK: - Ollama Errors
+
+enum OllamaError: Error, LocalizedError {
+    case invalidURL
+    case pullFailed(String)
+    case pullError(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL:
+            "Invalid Ollama URL"
+        case let .pullFailed(model):
+            "Failed to pull model: \(model)"
+        case let .pullError(message):
+            "Ollama error: \(message)"
+        }
+    }
 }
 
 // MARK: - Ollama API Types
@@ -91,4 +167,17 @@ private struct OllamaModel: Codable {
     let name: String
     let size: Int64?
     let digest: String?
+}
+
+private struct OllamaPullRequest: Codable {
+    let model: String
+    let stream: Bool
+}
+
+private struct OllamaPullResponse: Codable {
+    let status: String?
+    let digest: String?
+    let total: Int64?
+    let completed: Int64?
+    let error: String?
 }
