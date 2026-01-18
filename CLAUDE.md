@@ -99,6 +99,7 @@ All providers implement `LLMProvider` protocol with `generate()` and `generateSt
 Clai.swift (entry point, ArgumentParser)
     └── Commands/
             ├── ExplainCommand, SuggestCommand, ExamplesCommand, ManCommand
+            ├── ChatCommand (interactive conversation with history)
             ├── CacheCommand (stats, clear)
             ├── ModelsCommand (list, interactive management)
             ├── DocsCommand (generate markdown documentation)
@@ -108,6 +109,7 @@ Clai.swift (entry point, ArgumentParser)
                     └── Core/CuratedModels (recommended MLX models list)
             └── Core/ContextGatherer (fetches --help, man pages, tldr)
             └── Core/PromptBuilder (constructs prompts per operation type)
+            └── Core/ChatMessage (conversation history management)
             └── Core/ClaiEngine (orchestrates generation, filters <think> tags)
             └── Providers/ProviderManager (selects available provider)
             └── Cache/ResponseCache (SQLite cache, 7-day TTL)

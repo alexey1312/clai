@@ -99,4 +99,38 @@ enum PromptBuilder {
 
         return prompt
     }
+
+    /// Build prompt for chat mode with conversation history
+    static func buildChatPrompt(message: String, history: [ChatMessage]) -> String {
+        var prompt = """
+        You are a helpful CLI assistant specialized in Unix/Linux/macOS commands and shell scripting.
+        You help users understand commands, troubleshoot issues, and accomplish tasks in the terminal.
+
+        Guidelines:
+        - Be concise but thorough
+        - Use markdown formatting for code blocks
+        - When showing commands, explain what they do
+        - Warn about potentially dangerous operations
+        - Reference previous context in the conversation when relevant
+
+        """
+
+        // Add conversation history
+        if !history.isEmpty {
+            prompt += "\nConversation so far:\n"
+            for msg in history {
+                switch msg.role {
+                case .user:
+                    prompt += "\nUser: \(msg.content)"
+                case .assistant:
+                    prompt += "\nAssistant: \(msg.content)"
+                }
+            }
+            prompt += "\n"
+        }
+
+        prompt += "\nUser: \(message)\nAssistant:"
+
+        return prompt
+    }
 }

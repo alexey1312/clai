@@ -22,6 +22,7 @@ Local-first, privacy-friendly.
 - 💡 **suggest** - Get command suggestions for natural language tasks
 - 📚 **examples** - See practical usage examples for any command
 - 📖 **man** - Get AI-summarized man pages
+- 💬 **chat** - Interactive conversation with context memory
 - 🗂️ **cache** - View stats and clear response cache
 - 🤖 **models** - Manage local MLX and Ollama models
 - 📄 **docs** - Generate CLI documentation in Markdown
@@ -98,6 +99,9 @@ clai examples tar
 
 # Summarize a man page
 clai man grep
+
+# Start interactive chat
+clai chat
 ```
 
 ## Usage
@@ -110,6 +114,7 @@ clai man grep
 | `suggest`  | Get commands for a task                 | `clai suggest "compress a folder"`     |
 | `examples` | Show practical usage examples           | `clai examples rsync`                  |
 | `man`      | AI-summarized man page                  | `clai man awk`                         |
+| `chat`     | Interactive conversation session        | `clai chat`                            |
 | `cache`    | Manage response cache                   | `clai cache stats`                     |
 | `models`   | Manage local models                     | `clai models list`                     |
 | `docs`     | Generate Markdown documentation         | `clai docs -o docs/CLI.md`             |
@@ -204,6 +209,38 @@ clai completions bash > ~/.local/share/bash-completion/completions/clai
 
 # Fish
 clai completions fish > ~/.config/fish/completions/clai.fish
+```
+
+## Chat Mode
+
+Start an interactive conversation with context memory:
+
+```bash
+# Start interactive session
+clai chat
+
+# Start with an initial question
+clai chat "explain git rebase"
+```
+
+**In-session commands:**
+- `/exit`, `/quit`, `/q` — Exit the chat session
+- `/clear` — Clear conversation history
+- `/history` — Show conversation history
+- `/help` — Show available commands
+- `Ctrl+D` — Exit the session
+
+Chat mode preserves context across messages, allowing natural follow-up questions:
+
+```
+[1] > explain git rebase
+[assistant explains rebase]
+
+[2] > how do I abort it?
+[assistant explains git rebase --abort, referencing the previous context]
+
+[3] > show me an example
+[assistant shows example based on the ongoing conversation]
 ```
 
 ## Model Management

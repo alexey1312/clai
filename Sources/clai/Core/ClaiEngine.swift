@@ -110,6 +110,24 @@ final class ClaiEngine: Sendable {
         }
     }
 
+    /// Process a chat message and return the response
+    /// - Parameters:
+    ///   - message: The user's message
+    ///   - history: Previous messages in the conversation
+    /// - Returns: The assistant's response
+    func chat(message: String, history: [ChatMessage]) async throws -> String {
+        let prompt = PromptBuilder.buildChatPrompt(message: message, history: history)
+
+        // Chat doesn't use caching - each conversation is unique
+        let (response, _) = try await generateResponse(
+            prompt: prompt,
+            cacheKey: nil,
+            loadingMessage: "Thinking..."
+        )
+
+        return response
+    }
+
     private func makeCacheKey(command: String, mode: String) -> String? {
         guard !options.noCache, cache != nil else {
             return nil

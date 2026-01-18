@@ -15,6 +15,7 @@ struct Clai: AsyncParsableCommand {
           clai suggest "<task>"     Find commands for a task
           clai examples <command>   Show practical examples
           clai man <command>        Summarize man page
+          clai chat                 Start interactive chat session
           clai cache stats|clear    View or clear response cache
 
         PROVIDERS (in priority order):
@@ -29,12 +30,13 @@ struct Clai: AsyncParsableCommand {
           --no-stream         Disable streaming output
           --json              Output as JSON
         """,
-        version: "v1.0.5",
+        version: "v1.1.0",
         subcommands: [
             ExplainCommand.self,
             SuggestCommand.self,
             ExamplesCommand.self,
             ManCommand.self,
+            ChatCommand.self,
             CacheCommand.self,
             SetupCommand.self,
             CompletionsCommand.self,
