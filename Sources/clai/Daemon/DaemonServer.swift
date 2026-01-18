@@ -121,7 +121,7 @@ actor DaemonServer {
                         activeConnections += 1
                         Task {
                             await handleConnection(clientSocket)
-                            await decrementConnections()
+                            decrementConnections()
                         }
                     } else {
                         // Too many connections, send error and close

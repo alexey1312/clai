@@ -191,7 +191,7 @@ final class ProviderManager: Sendable {
 /// MLX provider for Apple Silicon
 struct MLXProvider: LLMProvider {
     let name = "MLX"
-    let supportsStreaming = false // MLX streaming not implemented in AnyLanguageModel
+    let supportsStreaming = true
 
     #if canImport(MLXLLM)
         private let model: MLXLanguageModel
@@ -249,7 +249,7 @@ struct MLXProvider: LLMProvider {
                         nonisolated(unsafe) let unsafeProgress = updateProgress
                         _ = try await MLXLMCommon.loadModel(id: modelId) { progress in
                             Task {
-                                await unsafeProgress(progress.fractionCompleted)
+                                unsafeProgress(progress.fractionCompleted)
                             }
                         }
                     }
@@ -333,7 +333,7 @@ struct OllamaProvider: LLMProvider {
                         _ = try await OllamaChecker.pullModel(defaultModel) { completed, total in
                             let fraction = total > 0 ? Double(completed) / Double(total) : 0
                             Task {
-                                await unsafeProgress(fraction)
+                                unsafeProgress(fraction)
                             }
                         }
                     }

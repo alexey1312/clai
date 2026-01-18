@@ -8,6 +8,8 @@ on:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  MISE_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  MISE_GITHUB_GITHUB_ATTESTATIONS: false
 
 jobs:
   lint:
@@ -60,24 +62,41 @@ jobs:
     runs-on: ubuntu-latest
     needs: lint
     container:
-      image: swift:6.1
+      image: swift:6.2-jammy
     steps:
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y curl
+
       - uses: actions/checkout@v6
 
       - name: Cache SPM dependencies
         uses: actions/cache@v4
         with:
           path: .build
-          key: ${{ runner.os }}-linux-spm-${{ hashFiles('Package.resolved') }}
+          key: ${{ runner.os }}-swift6.2-spm-${{ hashFiles('Package.resolved') }}
           restore-keys: |
-            ${{ runner.os }}-linux-spm-
+            ${{ runner.os }}-swift6.2-spm-
+
+      - name: Install mise
+        uses: jdx/mise-action@v3
+        with:
+          experimental: true
+
+      - name: Add xcsift to PATH
+        run: |
+          mise install xcsift
+          mise where xcsift >> "$GITHUB_PATH"
 
       - name: Show Swift version
         run: swift --version
 
-      - name: Build
-        run: swift build --static-swift-stdlib
+      - name: Build (static)
+        run: swift build --static-swift-stdlib 2>&1 | xcsift
+
+      - name: Clean before tests
+        run: rm -rf .build
 
       - name: Run tests
-        run: swift test --parallel --num-workers 1
-        continue-on-error: true  # Observation linking bug in Swift 6.1 on Linux
+        run: swift test --parallel --num-workers 1 2>&1 | xcsift

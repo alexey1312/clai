@@ -24,7 +24,7 @@ jobs:
             platform: linux-x64
             build-path: x86_64-unknown-linux-gnu/release
             archive-name: clai-linux-x64
-            container: swift:6.1
+            container: swift:6.2-jammy
 
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
@@ -54,9 +54,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build
-          key: ${{ runner.os }}-linux-spm-${{ hashFiles('Package.resolved') }}
+          key: ${{ runner.os }}-swift6.2-spm-${{ hashFiles('Package.resolved') }}
           restore-keys: |
-            ${{ runner.os }}-linux-spm-
+            ${{ runner.os }}-swift6.2-spm-
 
       - name: Set version from tag
         run: |
