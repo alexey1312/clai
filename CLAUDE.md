@@ -38,6 +38,10 @@ mise run setup              # Show git hooks status
 mise run pre-commit         # Run pre-commit on all files
 mise run changelog          # Generate CHANGELOG.md
 mise run changelog:unreleased  # Preview unreleased changes
+mise run docs               # Generate CLI docs (stdout)
+mise run docs:file          # Generate docs to docs/CLI.md
+mise run manpage            # Generate man page (stdout)
+mise run manpage:file       # Generate man page to man/clai.1
 ```
 
 Or use Swift directly:
@@ -96,7 +100,9 @@ Clai.swift (entry point, ArgumentParser)
     └── Commands/
             ├── ExplainCommand, SuggestCommand, ExamplesCommand, ManCommand
             ├── CacheCommand (stats, clear)
-            └── ModelsCommand (list, interactive management)
+            ├── ModelsCommand (list, interactive management)
+            ├── DocsCommand (generate markdown documentation)
+            └── ManPageGenCommand (generate man pages)
                     └── Core/ModelsManager (MLX/Ollama model operations)
                     └── Core/MLXModelDiscovery (HuggingFace cache scanning)
                     └── Core/CuratedModels (recommended MLX models list)

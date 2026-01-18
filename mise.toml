@@ -81,3 +81,19 @@ run = "git-cliff -o CHANGELOG.md"
 [tasks."changelog:unreleased"]
 description = "Preview unreleased changes"
 run = "git-cliff --unreleased"
+
+[tasks.docs]
+description = "Generate CLI documentation in Markdown"
+run = "swift run clai docs"
+
+[tasks."docs:file"]
+description = "Generate CLI docs to docs/CLI.md"
+run = "swift run clai docs --output docs/CLI.md"
+
+[tasks.manpage]
+description = "Generate man page"
+run = "swift run clai man-page"
+
+[tasks."manpage:file"]
+description = "Generate man page to man/clai.1"
+run = "mkdir -p man && swift run clai man-page --output man/clai.1"

@@ -39,6 +39,8 @@ struct Clai: AsyncParsableCommand {
             SetupCommand.self,
             CompletionsCommand.self,
             ModelsCommand.self,
+            DocsCommand.self,
+            ManPageGenCommand.self,
         ],
         defaultSubcommand: ExplainCommand.self
     )

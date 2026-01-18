@@ -24,6 +24,8 @@ Local-first, privacy-friendly.
 - 📖 **man** - Get AI-summarized man pages
 - 🗂️ **cache** - View stats and clear response cache
 - 🤖 **models** - Manage local MLX and Ollama models
+- 📄 **docs** - Generate CLI documentation in Markdown
+- 📘 **man-page** - Generate man page for clai
 
 ### Provider Support
 
@@ -102,14 +104,16 @@ clai man grep
 
 ### Commands
 
-| Command   | Description                             | Example                                |
-| --------- | --------------------------------------- | -------------------------------------- |
-| `explain` | Understand what a command does          | `clai explain "chmod 755 script.sh"`   |
-| `suggest` | Get commands for a task                 | `clai suggest "compress a folder"`     |
-| `examples`| Show practical usage examples           | `clai examples rsync`                  |
-| `man`     | AI-summarized man page                  | `clai man awk`                         |
-| `cache`   | Manage response cache                   | `clai cache stats`                     |
-| `models`  | Manage local models                     | `clai models list`                     |
+| Command    | Description                             | Example                                |
+| ---------- | --------------------------------------- | -------------------------------------- |
+| `explain`  | Understand what a command does          | `clai explain "chmod 755 script.sh"`   |
+| `suggest`  | Get commands for a task                 | `clai suggest "compress a folder"`     |
+| `examples` | Show practical usage examples           | `clai examples rsync`                  |
+| `man`      | AI-summarized man page                  | `clai man awk`                         |
+| `cache`    | Manage response cache                   | `clai cache stats`                     |
+| `models`   | Manage local models                     | `clai models list`                     |
+| `docs`     | Generate Markdown documentation         | `clai docs -o docs/CLI.md`             |
+| `man-page` | Generate man page                       | `clai man-page -o man/clai.1`          |
 
 ### Options
 
@@ -228,6 +232,23 @@ clai models list
 | Qwen3-4B | ~2.5GB | Best balance (recommended) |
 | DeepSeek-R1-7B | ~4GB | High quality, more memory |
 
+## Documentation Generation
+
+Generate CLI documentation in various formats:
+
+```bash
+# Generate Markdown documentation
+clai docs                     # Output to stdout
+clai docs -o docs/CLI.md      # Write to file
+
+# Generate man page
+clai man-page                 # Output to stdout
+clai man-page -o man/clai.1   # Write to file
+
+# View generated man page
+man ./man/clai.1
+```
+
 ## Caching
 
 Responses are cached in `~/Library/Caches/clai/` with a 7-day TTL.
@@ -263,6 +284,10 @@ mise run format:check       # Check formatting (CI)
 mise run clean              # Clean build artifacts
 mise run setup              # Show git hooks status
 mise run pre-commit         # Run pre-commit checks
+mise run docs               # Generate CLI docs (stdout)
+mise run docs:file          # Generate docs to docs/CLI.md
+mise run manpage            # Generate man page (stdout)
+mise run manpage:file       # Generate man page to man/clai.1
 ```
 
 Or use Swift directly:
