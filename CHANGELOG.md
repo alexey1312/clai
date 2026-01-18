@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-01-18
+
+### Documentation
+
+- **openspec**: Add proposals for future clai features by @alexey1312
+
+
+### Features
+
+- **chat**: Add interactive chat session with history by @alexey1312
+
+- **history**: Add semantic search and pattern analysis  by @alexey1312 in [#29](https://github.com/alexey1312/clai/pull/29)
+
+- Add shell integration  by @alexey1312 in [#30](https://github.com/alexey1312/clai/pull/30)
+
+
+### Miscellaneous Tasks
+
+- Merge branch 'main' of github.com:alexey1312/clai by @alexey1312
+
+
 ## [1.0.6] - 2026-01-18
 
 ### Features
