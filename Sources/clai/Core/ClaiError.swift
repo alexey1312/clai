@@ -13,6 +13,8 @@ enum ClaiError: Error, LocalizedError {
     case downloadFailed(String, retries: Int)
     case downloadInterrupted(String, progress: Double)
     case historyError(String)
+    case daemonError(String)
+    case socketError(String)
 
     var errorDescription: String? {
         switch self {
@@ -39,6 +41,10 @@ enum ClaiError: Error, LocalizedError {
             return "Download interrupted at \(percentage)%: \(url)"
         case let .historyError(message):
             return "History error: \(message)"
+        case let .daemonError(message):
+            return "Daemon error: \(message)"
+        case let .socketError(message):
+            return "Socket error: \(message)"
         }
     }
 

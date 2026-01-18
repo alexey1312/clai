@@ -20,6 +20,12 @@ struct Clai: AsyncParsableCommand {
           clai improve "<command>"  Get optimization suggestions
           clai history              Manage history index
           clai cache stats|clear    View or clear response cache
+          clai completions install  Install shell plugin with AI hotkeys
+          clai daemon start         Start background daemon for fast responses
+
+        SHELL INTEGRATION:
+          Install plugin: clai completions install zsh
+          Hotkeys: Ctrl+X Ctrl+E (explain), Ctrl+X Ctrl+S (suggest)
 
         PROVIDERS (in priority order):
           1. MLX       Local inference on Apple Silicon
@@ -46,6 +52,7 @@ struct Clai: AsyncParsableCommand {
             CacheCommand.self,
             SetupCommand.self,
             CompletionsCommand.self,
+            DaemonCommand.self,
             ModelsCommand.self,
             DocsCommand.self,
             ManPageGenCommand.self,

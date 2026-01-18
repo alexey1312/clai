@@ -3,8 +3,12 @@ import Foundation
 
 #if canImport(Darwin)
     import Darwin
+
+    private nonisolated(unsafe) let stdoutStream = Darwin.stdout
 #elseif canImport(Glibc)
-    import Glibc
+    @preconcurrency import Glibc
+
+    private nonisolated(unsafe) let stdoutStream = Glibc.stdout
 #endif
 
 struct ChatCommand: AsyncParsableCommand {
@@ -103,7 +107,7 @@ struct ChatCommand: AsyncParsableCommand {
     private func showPrompt(messageCount: Int, terminal: TerminalUI) {
         let turnNumber = (messageCount / 2) + 1
         print("\(Theme.accent)[\(turnNumber)]\(Theme.reset) \(Theme.bold)>\(Theme.reset) ", terminator: "")
-        fflush(stdout)
+        fflush(stdoutStream)
     }
 
     private func showGoodbye(terminal: TerminalUI) {
