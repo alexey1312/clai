@@ -43,7 +43,11 @@ actor DaemonServer {
         }
 
         // Create Unix domain socket
-        serverSocket = socket(AF_UNIX, SOCK_STREAM, 0)
+        #if canImport(Darwin)
+            serverSocket = socket(AF_UNIX, SOCK_STREAM, 0)
+        #else
+            serverSocket = socket(AF_UNIX, Int32(SOCK_STREAM.rawValue), 0)
+        #endif
         guard serverSocket >= 0 else {
             throw DaemonError.socketCreationFailed(errno: errno)
         }

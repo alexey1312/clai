@@ -8,7 +8,11 @@ import Foundation
 #elseif canImport(Glibc)
     @preconcurrency import Glibc
 
-    private nonisolated(unsafe) let stdoutStream = Glibc.stdout
+    // Use unsafeBitCast to avoid concurrency warnings on Linux's stdout global
+    private nonisolated(unsafe) let stdoutStream: UnsafeMutablePointer<FILE>? = unsafeBitCast(
+        Glibc.stdout,
+        to: UnsafeMutablePointer<FILE>?.self
+    )
 #endif
 
 struct ChatCommand: AsyncParsableCommand {

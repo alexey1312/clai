@@ -51,6 +51,10 @@ swift test                  # Test
 swift run clai explain ls   # Run the CLI
 ```
 
+## Important Rules
+
+**MUST run `mise run lint` after completing any code changes.** This ensures code style compliance before committing. The pre-commit hooks will reject non-compliant code, so always lint before finishing a task.
+
 ## Conventional Commits
 
 This project enforces [Conventional Commits](https://www.conventionalcommits.org/) via `hk` pre-commit hooks.

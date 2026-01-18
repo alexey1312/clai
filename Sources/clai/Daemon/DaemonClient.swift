@@ -115,21 +115,33 @@ struct DaemonClient: Sendable {
 
     // MARK: - Socket Communication
 
-    private func sendRequest(_ request: DaemonRequest) throws -> DaemonResponse {
-        // Create socket
-        let clientSocket = socket(AF_UNIX, SOCK_STREAM, 0)
+    private func createSocket() throws -> Int32 {
+        #if canImport(Darwin)
+            let clientSocket = socket(AF_UNIX, SOCK_STREAM, 0)
+        #else
+            let clientSocket = socket(AF_UNIX, Int32(SOCK_STREAM.rawValue), 0)
+        #endif
         guard clientSocket >= 0 else {
             throw DaemonError.socketCreationFailed(errno: errno)
         }
-        defer { close(clientSocket) }
 
-        // Set timeout
-        var timeout = timeval(
-            tv_sec: __darwin_time_t(timeoutMs / 1000),
-            tv_usec: __darwin_suseconds_t((timeoutMs % 1000) * 1000)
-        )
+        #if canImport(Darwin)
+            var timeout = timeval(
+                tv_sec: __darwin_time_t(timeoutMs / 1000),
+                tv_usec: __darwin_suseconds_t((timeoutMs % 1000) * 1000)
+            )
+        #else
+            var timeout = timeval(tv_sec: timeoutMs / 1000, tv_usec: (timeoutMs % 1000) * 1000)
+        #endif
         setsockopt(clientSocket, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
         setsockopt(clientSocket, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
+
+        return clientSocket
+    }
+
+    private func sendRequest(_ request: DaemonRequest) throws -> DaemonResponse {
+        let clientSocket = try createSocket()
+        defer { close(clientSocket) }
 
         // Connect to daemon
         var addr = sockaddr_un()
