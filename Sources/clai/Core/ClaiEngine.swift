@@ -118,7 +118,11 @@ final class ClaiEngine: Sendable {
         return ResponseCache.generateKey(command: command, mode: mode, provider: providerName)
     }
 
-    private func generateResponse(prompt: String, cacheKey: String?, loadingMessage: String = "Generating response...") async throws -> (String, Bool) {
+    private func generateResponse(
+        prompt: String,
+        cacheKey: String?,
+        loadingMessage: String = "Generating response..."
+    ) async throws -> (String, Bool) {
         // Check cache first (if not disabled)
         if let cacheKey, let cache, let cached = try? cache.get(key: cacheKey) {
             if options.verbose {
