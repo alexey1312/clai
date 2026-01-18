@@ -51,7 +51,7 @@ final class TerminalUI: @unchecked Sendable {
     /// Execute an operation with an animated spinner
     func withSpinner<T>(_ message: String, operation: () async throws -> T) async throws -> T {
         // If not a TTY or in verbose mode, fall back to simple logging
-        guard isatty(STDOUT_FILENO) != 0, !verbose else {
+        guard isatty(FileHandle.standardOutput.fileDescriptor) != 0, !verbose else {
             showProgress(message)
             return try await operation()
         }
