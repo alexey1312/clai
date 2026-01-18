@@ -11,6 +11,7 @@ disabled_rules:
   - trailing_comma
   - todo
   - trailing_whitespace
+  - opening_brace  # Handled by SwiftFormat
 
 line_length:
   warning: 120

@@ -16,6 +16,9 @@ struct Clai: AsyncParsableCommand {
           clai examples <command>   Show practical examples
           clai man <command>        Summarize man page
           clai chat                 Start interactive chat session
+          clai recall "<query>"     Search history with natural language
+          clai improve "<command>"  Get optimization suggestions
+          clai history              Manage history index
           clai cache stats|clear    View or clear response cache
 
         PROVIDERS (in priority order):
@@ -37,6 +40,9 @@ struct Clai: AsyncParsableCommand {
             ExamplesCommand.self,
             ManCommand.self,
             ChatCommand.self,
+            RecallCommand.self,
+            ImproveCommand.self,
+            HistoryCommand.self,
             CacheCommand.self,
             SetupCommand.self,
             CompletionsCommand.self,

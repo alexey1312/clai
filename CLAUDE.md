@@ -143,6 +143,35 @@ Clai.swift (entry point, ArgumentParser)
 - `clai cache clear` — Clear all cached responses
 - Cache stored in `~/Library/Caches/clai/clai_cache.sqlite`
 
+### History Intelligence
+Local semantic search over your shell history (zsh, bash, fish). All data stays local.
+
+**Quick Start:**
+```bash
+clai recall "compress folder"    # Auto-indexes on first use
+clai improve --aliases           # Suggests aliases based on usage
+```
+
+**Search Commands:**
+- `clai recall "<query>"` — Natural language search
+  - `--limit N` — Max results (default 10)
+  - `--since "1 week ago"` — Time filter
+  - `--exact` — Exact match (grep-like)
+  - `--json` — JSON output
+
+**Optimization:**
+- `clai improve --frequent` — Most used commands
+- `clai improve --aliases` — Alias candidates
+- `clai improve "<cmd>"` — Analyze specific command
+- `clai improve "<cmd>" --llm` — AI-powered suggestions
+
+**Management:**
+- `clai history stats` — Index statistics
+- `clai history index --full` — Rebuild index
+- `clai history clear` — Delete index (privacy)
+
+**Privacy:** All data in `~/Library/Application Support/clai/history/`. Nothing sent to cloud.
+
 ## OpenSpec
 
 For planning proposals and architectural changes, consult `/openspec/AGENTS.md`.
