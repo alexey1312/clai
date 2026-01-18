@@ -1,26 +1,25 @@
-import XCTest
 @testable import clai
+import XCTest
 
 final class TextStylerTests: XCTestCase {
-
-    func testStyleBold() {
+    func testApplyBold() {
         let input = "This is **bold** text"
         // Expect specific reset [22m (Normal intensity) instead of [0m
         let expected = "This is \u{001B}[1mbold\u{001B}[22m text"
-        XCTAssertEqual(TextStyler.styleBold(input), expected)
+        XCTAssertEqual(TextStyler.apply(input), expected)
     }
 
-    func testStyleBoldMultiple() {
+    func testApplyBoldMultiple() {
         let input = "**Bold1** and **Bold2**"
         let expected = "\u{001B}[1mBold1\u{001B}[22m and \u{001B}[1mBold2\u{001B}[22m"
-        XCTAssertEqual(TextStyler.styleBold(input), expected)
+        XCTAssertEqual(TextStyler.apply(input), expected)
     }
 
-    func testStyleInlineCode() {
+    func testApplyInlineCode() {
         let input = "Use `ls` command"
         // Expect specific reset [39m (Default foreground color) instead of [0m
         let expected = "Use \u{001B}[36mls\u{001B}[39m command"
-        XCTAssertEqual(TextStyler.styleInlineCode(input), expected)
+        XCTAssertEqual(TextStyler.apply(input), expected)
     }
 
     func testApply() {
