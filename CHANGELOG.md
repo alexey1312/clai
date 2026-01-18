@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.1] - 2026-01-18
+
+### Bug Fixes
+
+- **ci**: Enable static stdlib for Linux tests by @alexey1312
+
+
+### Features
+
+- **providers**: Implement FoundationModel provider and add attribution by @alexey1312
+
+- **providers**: Add Linux-compatible Ollama pull method by @alexey1312
+
+
+### Other
+
+- **deps**: Bump swift-argument-parser, Noora, and Yams by @alexey1312
+
+
 ## [1.1.0] - 2026-01-18
 
 ### Documentation
