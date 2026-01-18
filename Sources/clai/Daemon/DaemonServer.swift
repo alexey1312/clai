@@ -103,8 +103,12 @@ actor DaemonServer {
     }
 
     /// Accept and handle incoming connections
-    func runAcceptLoop() async throws {
+    /// - Parameter checkShutdown: Closure that returns true when shutdown is requested (for signal handling)
+    func runAcceptLoop(checkShutdown: @escaping @Sendable () -> Bool = { false }) async throws {
         while isRunning {
+            // Check for shutdown request from signal handler
+            if checkShutdown() { break }
+
             // Poll for incoming connections with a short timeout
             var pollFd = pollfd(fd: serverSocket, events: Int16(POLLIN), revents: 0)
 

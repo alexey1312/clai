@@ -7,6 +7,9 @@ import Foundation
     @preconcurrency import Glibc
 #endif
 
+// Global shutdown flag for signal handlers to communicate with the accept loop
+private nonisolated(unsafe) var shutdownRequested = false
+
 /// Command to manage the clai daemon for shell integration
 struct DaemonCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
@@ -81,10 +84,19 @@ extension DaemonCommand {
                 throw ClaiError.daemonError("Failed to start daemon: \(error.localizedDescription)")
             }
 
-            // Wait a moment for daemon to start
-            try await Task.sleep(nanoseconds: 500_000_000) // 500ms
+            // Wait for daemon to start with exponential backoff polling
+            var attempts = 0
+            let maxAttempts = 10
+            var delay: UInt64 = 100_000_000 // 100ms initial delay
 
-            let newStatus = DaemonStatus.check()
+            var newStatus = DaemonStatus.check()
+            while !newStatus.isRunning, attempts < maxAttempts {
+                try await Task.sleep(nanoseconds: delay)
+                newStatus = DaemonStatus.check()
+                attempts += 1
+                delay = min(delay * 3 / 2, 500_000_000) // Increase by 50%, cap at 500ms
+            }
+
             if newStatus.isRunning {
                 terminal.showSuccess("Daemon started (PID: \(newStatus.pid ?? process.processIdentifier))")
                 if verbose, let provider = newStatus.provider {
@@ -271,6 +283,7 @@ extension DaemonCommand {
             let server = DaemonServer()
 
             // Handle SIGINT and SIGTERM
+            shutdownRequested = false
             setupSignalHandlers()
 
             do {
@@ -279,27 +292,21 @@ extension DaemonCommand {
                     terminal.showSuccess("Daemon ready, listening for connections...")
                     print()
                 }
-                try await server.runAcceptLoop()
+                try await server.runAcceptLoop(checkShutdown: { shutdownRequested })
             } catch {
                 throw ClaiError.daemonError("Daemon error: \(error.localizedDescription)")
             }
+
+            // Graceful cleanup
+            await server.stop()
         }
 
         private func setupSignalHandlers() {
             signal(SIGINT) { _ in
-                // Daemon will clean up on next iteration
-                #if canImport(Darwin)
-                    Darwin.exit(0)
-                #elseif canImport(Glibc)
-                    Glibc.exit(0)
-                #endif
+                shutdownRequested = true
             }
             signal(SIGTERM) { _ in
-                #if canImport(Darwin)
-                    Darwin.exit(0)
-                #elseif canImport(Glibc)
-                    Glibc.exit(0)
-                #endif
+                shutdownRequested = true
             }
         }
     }
