@@ -136,7 +136,7 @@ final class ClaiEngine: Sendable {
             cacheKey: nil,
             loadingMessage: "Thinking..."
         ) {
-             PromptBuilder.buildChatPrompt(message: message, history: history)
+            PromptBuilder.buildChatPrompt(message: message, history: history)
         }
 
         return (result.content, result.providerName)
