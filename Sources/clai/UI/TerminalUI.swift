@@ -146,9 +146,23 @@ final class TerminalUI: @unchecked Sendable {
     /// Display styled markdown-like response
     private func showStyledResponse(_ response: String) {
         let lines = response.split(separator: "\n", omittingEmptySubsequences: false)
+        var inCodeBlock = false
 
         for line in lines {
             let lineStr = String(line)
+
+            // Code blocks (```)
+            if lineStr.hasPrefix("```") {
+                inCodeBlock.toggle()
+                print("\(Theme.muted)\(lineStr)\(Theme.reset)")
+                continue
+            }
+
+            // Inside code block
+            if inCodeBlock {
+                print("\(Theme.code)\(lineStr)\(Theme.reset)")
+                continue
+            }
 
             // Headers (# ## ###)
             if lineStr.hasPrefix("### ") {
@@ -160,10 +174,6 @@ final class TerminalUI: @unchecked Sendable {
             } else if lineStr.hasPrefix("# ") {
                 let content = TextStyler.apply(String(lineStr.dropFirst(2)), baseReset: Theme.header1)
                 print("\(Theme.header1)\(content)\(Theme.reset)")
-            }
-            // Code blocks (```)
-            else if lineStr.hasPrefix("```") {
-                print("\(Theme.muted)\(lineStr)\(Theme.reset)")
             }
             // Bullet points
             else if lineStr.hasPrefix("- ") || lineStr.hasPrefix("* ") {
