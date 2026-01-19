@@ -15,9 +15,12 @@ enum ClaiError: Error, LocalizedError {
     case historyError(String)
     case daemonError(String)
     case socketError(String)
+    case contextEmpty
 
     var errorDescription: String? {
         switch self {
+        case .contextEmpty:
+            return "No context gathered for command."
         case .noProviderAvailable:
             return "No LLM provider available. Run 'clai setup' for installation instructions."
         case let .providerUnavailable(provider):
