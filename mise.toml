@@ -18,7 +18,7 @@ swift = "latest"
 
 [tasks.build]
 description = "Build debug"
-run = "swift build 2>&1 | xcsift -w -f toon --toon-key-folding safe"
+run = "swift build 2>&1 | xcsift"
 
 [tasks."build:release"]
 description = "Build release"
@@ -27,20 +27,20 @@ xcodebuild -scheme clai -configuration Release \
   -destination 'platform=macOS' \
   -derivedDataPath .build/xcode \
   -skipMacroValidation \
-  build 2>&1 | xcsift -w -f toon --toon-key-folding safe
+  build 2>&1 | xcsift
 """
 
 [tasks.test]
 description = "Run tests"
-run = "swift test 2>&1 | xcsift -w -f toon --toon-key-folding safe"
+run = "swift test 2>&1 | xcsift"
 
 [tasks."test:filter"]
 description = "Run tests with filter (usage: mise run test:filter TestName)"
-run = "swift test --filter {{arg(name='filter')}} 2>&1 | xcsift -w -f toon --toon-key-folding safe"
+run = "swift test --filter {{arg(name='filter')}} 2>&1 | xcsift"
 
 [tasks.lint]
 description = "SwiftLint strict"
-run = "swiftlint lint --strict Sources 2>&1 | xcsift -f toon --toon-key-folding safe"
+run = "swiftlint lint --strict Sources 2>&1 | xcsift"
 
 [tasks.format]
 description = "Format Swift code"

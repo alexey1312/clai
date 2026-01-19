@@ -19,6 +19,25 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 <!-- OPENSPEC:END -->
 
+## TOON Format Convention
+
+Use TOON (Token-Oriented Object Notation) for all tabular data in this file. TOON reduces token usage by 30-60% by declaring fields once in array headers.
+
+```toon
+format:
+  syntax: name[count]{field1,field2,...}:
+  indent: 2 spaces for rows
+  delimiter: comma between values
+
+example[2]{id,name,status}:
+  1,Build command,active
+  2,Test command,active
+```
+
+When adding lists of items (modules, commands, files, etc.), always use TOON tables instead of markdown tables or lists.
+
+**Exception:** OpenSpec `tasks.md` — task items MUST use markdown checklists (`- [ ]`) for openspec parsing.
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Build & Development Commands
