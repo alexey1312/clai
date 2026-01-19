@@ -42,43 +42,47 @@ final class ClaiEngine: Sendable {
 
     /// Explain a CLI command in plain language
     func explain(command: String) async throws {
-        let context = try await terminal.withSpinner("Analyzing command...") {
-            try await contextGatherer.gather(for: command)
-        }
+        do {
+            let result = try await generateResponse(
+                cacheKey: makeCacheKey(command: command, mode: "explain"),
+                loadingMessage: "Generating explanation..."
+            ) {
+                let context = try await self.terminal.withSpinner("Analyzing command...") {
+                    try await self.contextGatherer.gather(for: command)
+                }
 
-        // Smart fallback: If no documentation found, treat as natural language/topic request
-        if context.isEmpty {
+                // Smart fallback: If no documentation found, treat as natural language/topic request
+                if context.isEmpty {
+                    throw ClaiError.contextEmpty
+                }
+
+                return PromptBuilder.buildExplainPrompt(command: command, context: context)
+            }
+
+            if !result.wasStreamed {
+                terminal.showResponse(result.content, format: options.json ? .json : .plain)
+            }
+            terminal.showProviderAttribution(result.providerName)
+
+        } catch ClaiError.contextEmpty {
             if options.verbose {
                 terminal.showInfo("No documentation found for '\(command)', falling back to suggest mode")
             }
             try await suggest(task: command)
-            return
         }
-
-        let prompt = PromptBuilder.buildExplainPrompt(command: command, context: context)
-
-        let result = try await generateResponse(
-            prompt: prompt,
-            cacheKey: makeCacheKey(command: command, mode: "explain"),
-            loadingMessage: "Generating explanation..."
-        )
-        if !result.wasStreamed {
-            terminal.showResponse(result.content, format: options.json ? .json : .plain)
-        }
-        terminal.showProviderAttribution(result.providerName)
     }
 
     /// Suggest commands for a natural language task
     func suggest(task: String) async throws {
-        let prompt = try await terminal.withSpinner("Finding commands...") {
-            PromptBuilder.buildSuggestPrompt(task: task)
-        }
-
         let result = try await generateResponse(
-            prompt: prompt,
             cacheKey: makeCacheKey(command: task, mode: "suggest"),
             loadingMessage: "Thinking..."
-        )
+        ) {
+            try await self.terminal.withSpinner("Finding commands...") {
+                PromptBuilder.buildSuggestPrompt(task: task)
+            }
+        }
+
         if !result.wasStreamed {
             terminal.showResponse(result.content, format: options.json ? .json : .plain)
         }
@@ -87,16 +91,16 @@ final class ClaiEngine: Sendable {
 
     /// Show practical examples for a command
     func examples(command: String) async throws {
-        let context = try await terminal.withSpinner("Generating examples...") {
-            try await contextGatherer.gather(for: command)
-        }
-        let prompt = PromptBuilder.buildExamplesPrompt(command: command, context: context)
-
         let result = try await generateResponse(
-            prompt: prompt,
             cacheKey: makeCacheKey(command: command, mode: "examples"),
             loadingMessage: "Creating examples..."
-        )
+        ) {
+            let context = try await self.terminal.withSpinner("Generating examples...") {
+                try await self.contextGatherer.gather(for: command)
+            }
+            return PromptBuilder.buildExamplesPrompt(command: command, context: context)
+        }
+
         if !result.wasStreamed {
             terminal.showResponse(result.content, format: options.json ? .json : .plain)
         }
@@ -105,16 +109,16 @@ final class ClaiEngine: Sendable {
 
     /// Summarize a man page
     func summarizeMan(command: String) async throws {
-        let manContent = try await terminal.withSpinner("Reading man page...") {
-            try await contextGatherer.getManPage(for: command)
-        }
-        let prompt = PromptBuilder.buildManSummaryPrompt(command: command, manContent: manContent)
-
         let result = try await generateResponse(
-            prompt: prompt,
             cacheKey: makeCacheKey(command: command, mode: "man"),
             loadingMessage: "Summarizing..."
-        )
+        ) {
+            let manContent = try await self.terminal.withSpinner("Reading man page...") {
+                try await self.contextGatherer.getManPage(for: command)
+            }
+            return PromptBuilder.buildManSummaryPrompt(command: command, manContent: manContent)
+        }
+
         if !result.wasStreamed {
             terminal.showResponse(result.content, format: options.json ? .json : .plain)
         }
@@ -127,14 +131,13 @@ final class ClaiEngine: Sendable {
     ///   - history: Previous messages in the conversation
     /// - Returns: The assistant's response and provider name
     func chat(message: String, history: [ChatMessage]) async throws -> (String, String) {
-        let prompt = PromptBuilder.buildChatPrompt(message: message, history: history)
-
         // Chat doesn't use caching - each conversation is unique
         let result = try await generateResponse(
-            prompt: prompt,
             cacheKey: nil,
             loadingMessage: "Thinking..."
-        )
+        ) {
+             PromptBuilder.buildChatPrompt(message: message, history: history)
+        }
 
         return (result.content, result.providerName)
     }
@@ -148,9 +151,9 @@ final class ClaiEngine: Sendable {
     }
 
     private func generateResponse(
-        prompt: String,
         cacheKey: String?,
-        loadingMessage: String = "Generating response..."
+        loadingMessage: String = "Generating response...",
+        promptProvider: () async throws -> String
     ) async throws -> GenerationResult {
         // Check cache first (if not disabled)
         if let cacheKey, let cache, let cached = try? cache.get(key: cacheKey) {
@@ -159,6 +162,9 @@ final class ClaiEngine: Sendable {
             }
             return GenerationResult(content: cached.response, wasStreamed: false, providerName: cached.provider)
         }
+
+        // Generate prompt (potentially slow operation, skipped on cache hit)
+        let prompt = try await promptProvider()
 
         let provider = try await providerManager.getAvailableProvider()
 
