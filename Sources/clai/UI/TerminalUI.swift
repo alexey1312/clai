@@ -150,6 +150,7 @@ final class TerminalUI: @unchecked Sendable {
 
         for line in lines {
             let lineStr = String(line)
+            let trimmed = lineStr.trimmingCharacters(in: .whitespaces)
 
             // Code blocks (```)
             if lineStr.hasPrefix("```") {
@@ -161,6 +162,14 @@ final class TerminalUI: @unchecked Sendable {
             // Inside code block
             if inCodeBlock {
                 print("\(Theme.code)\(lineStr)\(Theme.reset)")
+                continue
+            }
+
+            // Horizontal Rule (---, ***, ___)
+            if trimmed.count >= 3, Set(trimmed).count == 1,
+               trimmed.hasPrefix("-") || trimmed.hasPrefix("*") || trimmed.hasPrefix("_")
+            {
+                print("\(Theme.muted)────────────────────────────────────────\(Theme.reset)")
                 continue
             }
 
@@ -176,9 +185,11 @@ final class TerminalUI: @unchecked Sendable {
                 print("\(Theme.header1)\(content)\(Theme.reset)")
             }
             // Bullet points
-            else if lineStr.hasPrefix("- ") || lineStr.hasPrefix("* ") {
-                let content = String(lineStr.dropFirst(2))
-                print("  • \(TextStyler.apply(content))")
+            else if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") {
+                let indent = lineStr.prefix(while: { $0 == " " }).count
+                let content = String(trimmed.dropFirst(2))
+                let padding = String(repeating: " ", count: 2 + indent)
+                print("\(padding)• \(TextStyler.apply(content))")
             }
             // Blockquotes (> )
             else if lineStr.hasPrefix("> ") {
@@ -190,10 +201,13 @@ final class TerminalUI: @unchecked Sendable {
                 )
             }
             // Numbered lists
-            else if let match = lineStr.range(of: #"^\d+\. "#, options: .regularExpression) {
-                let number = lineStr[match].dropLast()
-                let rest = String(lineStr[match.upperBound...])
-                print("  \(number) \(TextStyler.apply(rest))")
+            else if let match = lineStr.range(of: #"^\s*\d+\.\s+"#, options: .regularExpression) {
+                let prefix = lineStr[match]
+                let indent = prefix.prefix(while: { $0 == " " }).count
+                let numberPart = prefix.trimmingCharacters(in: .whitespaces)
+                let content = String(lineStr[match.upperBound...])
+                let padding = String(repeating: " ", count: 2 + indent)
+                print("\(padding)\(numberPart) \(TextStyler.apply(content))")
             }
             // Regular text
             else {
