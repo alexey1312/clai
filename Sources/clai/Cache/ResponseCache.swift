@@ -5,7 +5,9 @@ import Foundation
 
 /// SQLite-based response cache with TTL expiration
 final class ResponseCache: @unchecked Sendable {
-    private let database: Connection
+    private var _database: Connection?
+    private let lock = NSLock()
+
     private let responses = Table("responses")
 
     // Column definitions
@@ -19,21 +21,6 @@ final class ResponseCache: @unchecked Sendable {
     private let ttlDays: Int = 7
 
     init() throws {
-        // Create cache directory if needed
-        let cacheDir = Self.cacheDirectory
-        try FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
-
-        let dbPath = cacheDir.appendingPathComponent("clai_cache.sqlite").path
-        database = try Connection(dbPath)
-
-        // Enable WAL mode for better concurrency and write performance
-        try database.run("PRAGMA journal_mode = WAL;")
-
-        // Set synchronous to NORMAL for better performance with acceptable durability for cache
-        try database.run("PRAGMA synchronous = NORMAL;")
-
-        try createTable()
-
         // Optimize startup: Run cleanup in background
         // This avoids blocking ClaiEngine initialization on DB operations
         Task { [weak self] in
@@ -50,8 +37,8 @@ final class ResponseCache: @unchecked Sendable {
     }
 
     /// Create the responses table if it doesn't exist
-    private func createTable() throws {
-        try database.run(
+    private func createTable(_ db: Connection) throws {
+        try db.run(
             responses.create(ifNotExists: true) { table in
                 table.column(id, primaryKey: .autoincrement)
                 table.column(cacheKey, unique: true)
@@ -61,10 +48,10 @@ final class ResponseCache: @unchecked Sendable {
             })
 
         // Create index for faster lookups
-        try database.run(responses.createIndex(cacheKey, ifNotExists: true))
+        try db.run(responses.createIndex(cacheKey, ifNotExists: true))
 
         // Create index on createdAt to speed up expiration cleanup
-        try database.run(responses.createIndex(createdAt, ifNotExists: true))
+        try db.run(responses.createIndex(createdAt, ifNotExists: true))
     }
 
     /// Generate a cache key from command and context
@@ -74,79 +61,130 @@ final class ResponseCache: @unchecked Sendable {
         return combined.sha256Hash
     }
 
+    /// Execute a block with the database connection
+    private func withConnection<T>(_ block: (Connection) throws -> T) throws -> T {
+        lock.lock()
+        defer { lock.unlock() }
+
+        let db: Connection
+        if let existing = _database {
+            db = existing
+        } else {
+            db = try _initDatabase()
+            _database = db
+        }
+
+        return try block(db)
+    }
+
+    private func _initDatabase() throws -> Connection {
+        // Create cache directory if needed
+        let cacheDir = Self.cacheDirectory
+        try FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+
+        let dbPath = cacheDir.appendingPathComponent("clai_cache.sqlite").path
+        let db = try Connection(dbPath)
+
+        // Enable WAL mode for better concurrency and write performance
+        try db.run("PRAGMA journal_mode = WAL;")
+
+        // Set synchronous to NORMAL for better performance with acceptable durability for cache
+        try db.run("PRAGMA synchronous = NORMAL;")
+
+        try createTable(db)
+        return db
+    }
+
     /// Look up a cached response
     func get(key: String) throws -> CachedResponse? {
-        let query = responses.filter(cacheKey == key)
+        try withConnection { db in
+            let query = responses.filter(cacheKey == key)
 
-        guard let row = try database.pluck(query) else {
-            return nil
+            guard let row = try db.pluck(query) else {
+                return nil
+            }
+
+            let responseCreatedAt = row[createdAt]
+            guard let expirationDate = Calendar.current.date(
+                byAdding: .day, value: ttlDays, to: responseCreatedAt
+            ) else {
+                // Date calculation failed - treat as expired
+                try delete(key: key, db: db)
+                return nil
+            }
+
+            // Check if expired
+            if Date() > expirationDate {
+                try delete(key: key, db: db)
+                return nil
+            }
+
+            return CachedResponse(
+                response: row[response],
+                provider: row[provider],
+                createdAt: responseCreatedAt
+            )
         }
-
-        let responseCreatedAt = row[createdAt]
-        guard let expirationDate = Calendar.current.date(
-            byAdding: .day, value: ttlDays, to: responseCreatedAt
-        ) else {
-            // Date calculation failed - treat as expired
-            try delete(key: key)
-            return nil
-        }
-
-        // Check if expired
-        if Date() > expirationDate {
-            try delete(key: key)
-            return nil
-        }
-
-        return CachedResponse(
-            response: row[response],
-            provider: row[provider],
-            createdAt: responseCreatedAt
-        )
     }
 
     /// Store a response in the cache
     func set(key: String, response responseText: String, provider providerName: String) throws {
-        let insert = responses.insert(
-            or: .replace,
-            cacheKey <- key,
-            response <- responseText,
-            provider <- providerName,
-            createdAt <- Date()
-        )
-        try database.run(insert)
+        try withConnection { db in
+            let insert = responses.insert(
+                or: .replace,
+                cacheKey <- key,
+                response <- responseText,
+                provider <- providerName,
+                createdAt <- Date()
+            )
+            try db.run(insert)
+        }
     }
 
     /// Delete a cached response
     func delete(key: String) throws {
+        try withConnection { db in
+            try delete(key: key, db: db)
+        }
+    }
+
+    // Internal helper that takes db (caller must hold lock)
+    private func delete(key: String, db: Connection) throws {
         let query = responses.filter(cacheKey == key)
-        try database.run(query.delete())
+        try db.run(query.delete())
     }
 
     /// Clean up expired entries
     func cleanupExpired() throws {
-        guard let expirationDate = Calendar.current.date(byAdding: .day, value: -ttlDays, to: Date()) else {
-            return // Cannot calculate expiration date, skip cleanup
+        try withConnection { db in
+            guard let expirationDate = Calendar.current.date(byAdding: .day, value: -ttlDays, to: Date()) else {
+                return // Cannot calculate expiration date, skip cleanup
+            }
+            let expired = responses.filter(createdAt < expirationDate)
+            try db.run(expired.delete())
         }
-        let expired = responses.filter(createdAt < expirationDate)
-        try database.run(expired.delete())
     }
 
     /// Clear all cached responses
     func clearAll() throws {
-        try database.run(responses.delete())
+        try withConnection { db in
+            try db.run(responses.delete())
+        }
     }
 
     /// Get cache statistics
     func stats() throws -> CacheStats {
-        let count = try database.scalar(responses.count)
-        let dbPath = Self.cacheDirectory.appendingPathComponent("clai_cache.sqlite")
+        try withConnection { db in
+            let count = try db.scalar(responses.count)
+            let dbPath = Self.cacheDirectory.appendingPathComponent("clai_cache.sqlite")
 
-        var sizeBytes: Int64 = 0
-        if let attrs = try? FileManager.default.attributesOfItem(atPath: dbPath.path) {
-            sizeBytes = attrs[.size] as? Int64 ?? 0
+            var sizeBytes: Int64 = 0
+            if let attrs = try? FileManager.default.attributesOfItem(atPath: dbPath.path) {
+                sizeBytes = attrs[.size] as? Int64 ?? 0
+            }
+
+            return CacheStats(count: count, sizeBytes: sizeBytes)
         }
-
-        return CacheStats(count: count, sizeBytes: sizeBytes)
     }
 }
 
