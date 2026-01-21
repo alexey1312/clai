@@ -13,6 +13,10 @@ struct CommandContext: Sendable {
 
 /// Gathers context about commands from help, man pages, and tldr
 final class ContextGatherer: Sendable {
+    /// Cached availability of tldr
+    private nonisolated(unsafe) static var isTldrInstalled: Bool?
+    private static let lock = NSLock()
+
     /// Gather all available context for a command
     func gather(for command: String) async throws -> CommandContext {
         async let helpOutput = getHelpOutput(for: command)
@@ -48,12 +52,34 @@ final class ContextGatherer: Sendable {
     func getTldrPage(for command: String) async throws -> String? {
         let baseCommand = command.split(separator: " ").first.map(String.init) ?? command
 
-        // Check if tldr is installed
-        guard await (try? runCommand("which tldr")) != nil else {
+        if await !Self.checkTldrAvailability() {
             return nil
         }
 
         return try await runCommand("tldr \(baseCommand)")
+    }
+
+    /// Check if tldr is installed, caching the result
+    private static func checkTldrAvailability() async -> Bool {
+        // Check cache first (needs lock for thread safety)
+        lock.lock()
+        if let installed = isTldrInstalled {
+            lock.unlock()
+            return installed
+        }
+        lock.unlock()
+
+        // Not cached, check system
+        // Note: We instantiate a temporary gatherer just to run the command
+        // to avoid making runCommand static or exposing it
+        let installed = await (try? ContextGatherer().runCommand("which tldr")) != nil
+
+        // Update cache
+        lock.lock()
+        isTldrInstalled = installed
+        lock.unlock()
+
+        return installed
     }
 
     private func runCommand(_ command: String) async throws -> String {
