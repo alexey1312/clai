@@ -14,7 +14,7 @@ struct CommandContext: Sendable {
 /// Gathers context about commands from help, man pages, and tldr
 final class ContextGatherer: Sendable {
     /// Cached availability of tldr
-    nonisolated(unsafe) private static var isTldrInstalled: Bool?
+    private nonisolated(unsafe) static var isTldrInstalled: Bool?
     private static let lock = NSLock()
 
     /// Gather all available context for a command
@@ -52,7 +52,7 @@ final class ContextGatherer: Sendable {
     func getTldrPage(for command: String) async throws -> String? {
         let baseCommand = command.split(separator: " ").first.map(String.init) ?? command
 
-        if !(await Self.checkTldrAvailability()) {
+        if await !Self.checkTldrAvailability() {
             return nil
         }
 
