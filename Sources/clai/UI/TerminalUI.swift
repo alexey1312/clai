@@ -72,8 +72,14 @@ final class TerminalUI: @unchecked Sendable {
         print("⏳ \(message)")
         try await action { progress in
             let percentage = Int(progress * 100)
-            let filled = String(repeating: "█", count: percentage / 5)
-            let empty = String(repeating: "░", count: 20 - percentage / 5)
+            // Reserve space for " [] 100%" (approx 8 chars) and keep min width
+            let width = self.terminalWidth
+            let barWidth = max(10, width - 8)
+            let filledCount = Int(Double(barWidth) * progress)
+            let emptyCount = max(0, barWidth - filledCount)
+
+            let filled = String(repeating: "█", count: filledCount)
+            let empty = String(repeating: "░", count: emptyCount)
             print("\r[\(filled)\(empty)] \(percentage)%", terminator: "")
             flushStdout()
             if progress >= 1.0 {
@@ -169,7 +175,8 @@ final class TerminalUI: @unchecked Sendable {
             if trimmed.count >= 3, Set(trimmed).count == 1,
                trimmed.hasPrefix("-") || trimmed.hasPrefix("*") || trimmed.hasPrefix("_")
             {
-                print("\(Theme.muted)────────────────────────────────────────\(Theme.reset)")
+                let line = String(repeating: "─", count: terminalWidth)
+                print("\(Theme.muted)\(line)\(Theme.reset)")
                 continue
             }
 
@@ -315,6 +322,20 @@ final class TerminalUI: @unchecked Sendable {
     }
 
     // MARK: - Private
+
+    private var terminalWidth: Int {
+        var w = winsize()
+        #if os(Linux)
+            let result = ioctl(FileHandle.standardOutput.fileDescriptor, UInt(TIOCGWINSZ), &w)
+        #else
+            let result = ioctl(FileHandle.standardOutput.fileDescriptor, TIOCGWINSZ, &w)
+        #endif
+
+        if result == 0, w.ws_col > 0 {
+            return Int(w.ws_col)
+        }
+        return 80
+    }
 
     private func formatAsJSON(_ response: String) -> String {
         let output: [String: Any] = [
