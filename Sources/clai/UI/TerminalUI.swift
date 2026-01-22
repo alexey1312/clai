@@ -160,14 +160,32 @@ final class TerminalUI: @unchecked Sendable {
 
             // Code blocks (```)
             if lineStr.hasPrefix("```") {
-                inCodeBlock.toggle()
-                print("\(Theme.muted)\(lineStr)\(Theme.reset)")
+                if !inCodeBlock {
+                    inCodeBlock = true
+                    let lang = String(lineStr.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+                    let label = lang.isEmpty ? "" : " \(lang) "
+                    let prefix = "╭───"
+                    let w = terminalWidth
+
+                    if label.isEmpty {
+                        let line = String(repeating: "─", count: max(0, w - 1))
+                        print("\(Theme.muted)╭\(line)\(Theme.reset)")
+                    } else {
+                        let remaining = max(0, w - prefix.count - label.count)
+                        let suffix = String(repeating: "─", count: remaining)
+                        print("\(Theme.muted)\(prefix)\(Theme.accent)\(label)\(Theme.muted)\(suffix)\(Theme.reset)")
+                    }
+                } else {
+                    inCodeBlock = false
+                    let line = String(repeating: "─", count: max(0, terminalWidth - 1))
+                    print("\(Theme.muted)╰\(line)\(Theme.reset)")
+                }
                 continue
             }
 
             // Inside code block
             if inCodeBlock {
-                print("\(Theme.code)\(lineStr)\(Theme.reset)")
+                print("\(Theme.muted)│\(Theme.reset) \(Theme.code)\(lineStr)\(Theme.reset)")
                 continue
             }
 
