@@ -43,7 +43,7 @@ final class ModelsManager {
     // MARK: - Discovery
 
     /// Get all MLX models (downloaded + available from curated list)
-    func getAllMLXModels() -> [MLXModelInfo] {
+    func getAllMLXModels() async -> [MLXModelInfo] {
         let config = Config.load()
         let downloaded = MLXModelDiscovery.discoverDownloaded()
         return CuratedModels.getModelsWithStatus(
@@ -53,7 +53,7 @@ final class ModelsManager {
     }
 
     /// Get only downloaded MLX models
-    func getDownloadedMLXModels() -> [MLXModelInfo] {
+    func getDownloadedMLXModels() async -> [MLXModelInfo] {
         let config = Config.load()
         var models = MLXModelDiscovery.discoverDownloaded()
 
@@ -181,8 +181,11 @@ final class ModelsManager {
     // MARK: - Private Helpers
 
     private func printModelsList() async {
-        let mlxModels = getAllMLXModels()
-        let ollamaModels = await getOllamaModels()
+        async let mlxModelsTask = getAllMLXModels()
+        async let ollamaModelsTask = getOllamaModels()
+
+        let mlxModels = await mlxModelsTask
+        let ollamaModels = await ollamaModelsTask
         let config = Config.load()
 
         terminal.printLine()
@@ -224,8 +227,11 @@ final class ModelsManager {
     }
 
     private func handleSetDefault() async throws {
-        let mlxModels = getAllMLXModels().filter(\.isDownloaded)
-        let ollamaModels = await getOllamaModels()
+        async let mlxModelsTask = getAllMLXModels()
+        async let ollamaModelsTask = getOllamaModels()
+
+        let mlxModels = await mlxModelsTask.filter(\.isDownloaded)
+        let ollamaModels = await ollamaModelsTask
 
         var options: [(String, ModelSelection)] = []
 
@@ -269,7 +275,7 @@ final class ModelsManager {
     }
 
     private func handleDownload() async throws {
-        let mlxModels = getAllMLXModels()
+        let mlxModels = await getAllMLXModels()
         let notDownloaded = mlxModels.filter { !$0.isDownloaded }
 
         if notDownloaded.isEmpty {
@@ -310,7 +316,7 @@ final class ModelsManager {
     }
 
     private func handleDelete() async throws {
-        let downloaded = getDownloadedMLXModels()
+        let downloaded = await getDownloadedMLXModels()
 
         if downloaded.isEmpty {
             terminal.showWarning("No MLX models downloaded.")
@@ -358,8 +364,11 @@ final class ModelsManager {
 
     /// Print models list for non-interactive mode
     func printList() async {
-        let mlxModels = getAllMLXModels()
-        let ollamaModels = await getOllamaModels()
+        async let mlxModelsTask = getAllMLXModels()
+        async let ollamaModelsTask = getOllamaModels()
+
+        let mlxModels = await mlxModelsTask
+        let ollamaModels = await ollamaModelsTask
         let config = Config.load()
 
         terminal.printLine()
