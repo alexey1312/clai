@@ -153,13 +153,20 @@ final class TerminalUI: @unchecked Sendable {
     private func showStyledResponse(_ response: String) {
         let lines = response.split(separator: "\n", omittingEmptySubsequences: false)
         var inCodeBlock = false
+        var activeCallout: CalloutStyle?
 
         for line in lines {
             let lineStr = String(line)
             let trimmed = lineStr.trimmingCharacters(in: .whitespaces)
 
+            // Reset callout if line is not a blockquote and not inside a code block
+            // Note: We check this early but only clear if we confirm it's not a blockquote below
+            // Actually, simplified logic: if we hit a non-blockquote line (and not in code block), clear it.
+            // But we can just handle it in the "else" block or specific blocks.
+
             // Code blocks (```)
             if lineStr.hasPrefix("```") {
+                activeCallout = nil
                 if !inCodeBlock {
                     inCodeBlock = true
                     let lang = String(lineStr.dropFirst(3)).trimmingCharacters(in: .whitespaces)
@@ -193,6 +200,7 @@ final class TerminalUI: @unchecked Sendable {
             if trimmed.count >= 3, Set(trimmed).count == 1,
                trimmed.hasPrefix("-") || trimmed.hasPrefix("*") || trimmed.hasPrefix("_")
             {
+                activeCallout = nil
                 let line = String(repeating: "─", count: terminalWidth)
                 print("\(Theme.muted)\(line)\(Theme.reset)")
                 continue
@@ -200,17 +208,21 @@ final class TerminalUI: @unchecked Sendable {
 
             // Headers (# ## ###)
             if lineStr.hasPrefix("### ") {
+                activeCallout = nil
                 let content = TextStyler.apply(String(lineStr.dropFirst(4)), baseReset: Theme.header3)
                 print("\(Theme.header3)\(content)\(Theme.reset)")
             } else if lineStr.hasPrefix("## ") {
+                activeCallout = nil
                 let content = TextStyler.apply(String(lineStr.dropFirst(3)), baseReset: Theme.header2)
                 print("\(Theme.header2)\(content)\(Theme.reset)")
             } else if lineStr.hasPrefix("# ") {
+                activeCallout = nil
                 let content = TextStyler.apply(String(lineStr.dropFirst(2)), baseReset: Theme.header1)
                 print("\(Theme.header1)\(content)\(Theme.reset)")
             }
             // Bullet points
             else if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") {
+                activeCallout = nil
                 let indent = lineStr.prefix(while: { $0 == " " }).count
                 let content = String(trimmed.dropFirst(2))
                 let padding = String(repeating: " ", count: 2 + indent)
@@ -219,14 +231,30 @@ final class TerminalUI: @unchecked Sendable {
             // Blockquotes (> )
             else if lineStr.hasPrefix("> ") {
                 let content = String(lineStr.dropFirst(2))
-                // Muted bar, Italic text
-                print(
-                    "  \(Theme.muted)│\(Theme.defaultColor) \(Theme.italic)" +
-                        "\(TextStyler.apply(content))\(Theme.italicOff)"
-                )
+
+                // Check for callout definition (e.g. "> [!NOTE]")
+                if let callout = CalloutStyle(from: content) {
+                    activeCallout = callout
+                    print(
+                        "  \(callout.color)│\(Theme.reset) \(callout.color)\(Theme.bold)\(callout.icon) \(callout.title)\(Theme.reset)"
+                    )
+                    continue
+                }
+
+                if let callout = activeCallout {
+                    // Callout content
+                    print("  \(callout.color)│\(Theme.reset) \(TextStyler.apply(content))")
+                } else {
+                    // Standard blockquote
+                    print(
+                        "  \(Theme.muted)│\(Theme.defaultColor) \(Theme.italic)" +
+                            "\(TextStyler.apply(content))\(Theme.italicOff)"
+                    )
+                }
             }
             // Numbered lists
             else if let match = lineStr.range(of: #"^\s*\d+\.\s+"#, options: .regularExpression) {
+                activeCallout = nil
                 let prefix = lineStr[match]
                 let indent = prefix.prefix(while: { $0 == " " }).count
                 let numberPart = prefix.trimmingCharacters(in: .whitespaces)
@@ -236,6 +264,7 @@ final class TerminalUI: @unchecked Sendable {
             }
             // Regular text
             else {
+                activeCallout = nil
                 print(TextStyler.apply(lineStr))
             }
         }
@@ -368,5 +397,38 @@ final class TerminalUI: @unchecked Sendable {
         }
 
         return json
+    }
+
+    private struct CalloutStyle {
+        let icon: String
+        let color: String
+        let title: String
+
+        init?(from text: String) {
+            guard text.hasPrefix("[!") else { return nil }
+            guard let closingBracket = text.firstIndex(of: "]") else { return nil }
+
+            // Extract type between [ and ]
+            let typeRange = text.index(after: text.startIndex) ..< closingBracket
+            let type = String(text[typeRange]).uppercased() // e.g., "!WARNING"
+
+            guard type.hasPrefix("!") else { return nil }
+            let key = String(type.dropFirst()) // "WARNING"
+
+            switch key {
+            case "NOTE": self.init(icon: "ℹ", color: Theme.blue, title: "NOTE")
+            case "TIP": self.init(icon: "💡", color: Theme.success, title: "TIP")
+            case "IMPORTANT": self.init(icon: "🔥", color: Theme.magenta, title: "IMPORTANT")
+            case "WARNING": self.init(icon: "⚠", color: Theme.warning, title: "WARNING")
+            case "CAUTION": self.init(icon: "⚡", color: Theme.error, title: "CAUTION")
+            default: return nil
+            }
+        }
+
+        init(icon: String, color: String, title: String) {
+            self.icon = icon
+            self.color = color
+            self.title = title
+        }
     }
 }
