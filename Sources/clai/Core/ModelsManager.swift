@@ -181,11 +181,8 @@ final class ModelsManager {
     // MARK: - Private Helpers
 
     private func printModelsList() async {
-        async let mlxModelsTask = getAllMLXModels()
-        async let ollamaModelsTask = getOllamaModels()
-
-        let mlxModels = await mlxModelsTask
-        let ollamaModels = await ollamaModelsTask
+        let mlxModels = await getAllMLXModels()
+        let ollamaModels = await getOllamaModels()
         let config = Config.load()
 
         terminal.printLine()
@@ -227,11 +224,8 @@ final class ModelsManager {
     }
 
     private func handleSetDefault() async throws {
-        async let mlxModelsTask = getAllMLXModels()
-        async let ollamaModelsTask = getOllamaModels()
-
-        let mlxModels = await mlxModelsTask.filter(\.isDownloaded)
-        let ollamaModels = await ollamaModelsTask
+        let mlxModels = await getAllMLXModels().filter(\.isDownloaded)
+        let ollamaModels = await getOllamaModels()
 
         var options: [(String, ModelSelection)] = []
 
@@ -364,11 +358,8 @@ final class ModelsManager {
 
     /// Print models list for non-interactive mode
     func printList() async {
-        async let mlxModelsTask = getAllMLXModels()
-        async let ollamaModelsTask = getOllamaModels()
-
-        let mlxModels = await mlxModelsTask
-        let ollamaModels = await ollamaModelsTask
+        let mlxModels = await getAllMLXModels()
+        let ollamaModels = await getOllamaModels()
         let config = Config.load()
 
         terminal.printLine()
