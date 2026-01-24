@@ -2,6 +2,66 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.2] - 2026-01-24
+
+### Miscellaneous Tasks
+
+- Add .xcsift.toml by @alexey1312
+
+
+### Other
+
+- Replace unsafe locks with actor-based caching for tldr availability 
+
+* fix(concurrency): replace NSLock with actor for async-safe tldr caching
+
+NSLock cannot be used in async contexts in Swift 6. Replace with
+actor-based caching for thread-safe tldr availability checks.
+Also add @discardableResult to withConnection to silence warning.
+
+* fix(concurrency): remove async let to fix data race errors in Swift 6
+
+Replace async let with sequential execution in ClaiEngine and
+ModelsManager to avoid data race errors with closures and self
+in Swift 6 strict concurrency mode.
+
+* chore: update Package.resolved
+
+---------
+
+Co-authored-by: Claude <noreply@anthropic.com> by @alexey1312 in [#46](https://github.com/alexey1312/clai/pull/46)
+
+
+### Performance
+
+- **lazy-init**: Defer context gathering until after cache miss  by @google-labs-jules[bot] in [#32](https://github.com/alexey1312/clai/pull/32)
+
+- **cache**: Optimize ResponseCache initialization to be lazy  by @google-labs-jules[bot] in [#34](https://github.com/alexey1312/clai/pull/34)
+
+- **core**: Cache tldr availability in ContextGatherer  by @google-labs-jules[bot] in [#36](https://github.com/alexey1312/clai/pull/36)
+
+- **providers**: Avoid unnecessary Ollama network checks  by @google-labs-jules[bot] in [#40](https://github.com/alexey1312/clai/pull/40)
+
+- **concurrency**: Parallelize model discovery in ModelsManager  by @google-labs-jules[bot] in [#42](https://github.com/alexey1312/clai/pull/42)
+
+- **startup**: Parallelize provider discovery and context gathering  by @google-labs-jules[bot] in [#45](https://github.com/alexey1312/clai/pull/45)
+
+
+### Styling
+
+- **ui**: Improve markdown code block rendering  by @google-labs-jules[bot] in [#31](https://github.com/alexey1312/clai/pull/31)
+
+- **ui**: Improve markdown rendering for lists and rules  by @google-labs-jules[bot] in [#33](https://github.com/alexey1312/clai/pull/33)
+
+- **ui**: Make progress bars and horizontal rules responsive to terminal width  by @google-labs-jules[bot] in [#35](https://github.com/alexey1312/clai/pull/35)
+
+- **ui**: Improve markdown code block rendering  by @google-labs-jules[bot] in [#39](https://github.com/alexey1312/clai/pull/39)
+
+- **ui**: Implement GitHub-flavored markdown callouts  by @google-labs-jules[bot] in [#41](https://github.com/alexey1312/clai/pull/41)
+
+- **ui**: Add markdown link support  by @google-labs-jules[bot] in [#44](https://github.com/alexey1312/clai/pull/44)
+
+
 ## [1.1.1] - 2026-01-18
 
 ### Bug Fixes
