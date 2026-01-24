@@ -32,25 +32,84 @@ final class ProviderManager: Sendable {
 
     /// Get the first available provider from the chain
     func getAvailableProvider() async throws -> LLMProvider {
-        // If user specified a provider, use only that one
-        if let preferred = preferredProvider {
-            guard let provider = try await createProvider(preferred) else {
-                throw ClaiError.providerUnavailable(preferred.rawValue)
-            }
-            return provider
-        }
+        let candidates = try await getCandidateProviders()
 
-        // Check providers sequentially to avoid unnecessary work (e.g., spinning up 5 tasks, making network calls to
-        // Ollama)
-        // Most checks are fast (Foundation, MLX platform check, Env vars).
-        // Only Ollama involves network I/O, which we want to skip if a higher priority provider is available.
-        for providerType in defaultChain {
-            if let provider = try await createProvider(providerType) {
+        for type in candidates {
+            if let provider = try await instantiateProvider(type) {
                 return provider
             }
         }
 
+        // If we had candidates but they all failed to instantiate (e.g. download errors)
+        if let preferred = preferredProvider {
+            throw ClaiError.providerUnavailable(preferred.rawValue)
+        }
         throw ClaiError.noProviderAvailable
+    }
+
+    /// Get a list of available providers, prioritizing user preference and default chain
+    func getCandidateProviders() async throws -> [Provider] {
+        // If user specified a provider, check only that one
+        if let preferred = preferredProvider {
+            if await isAvailable(preferred) {
+                return [preferred]
+            }
+            throw ClaiError.providerUnavailable(preferred.rawValue)
+        }
+
+        // Check providers in parallel to hide latency (especially for network checks like Ollama)
+        let tasks = [
+            Provider.foundation: Task { await isAvailable(.foundation) },
+            Provider.mlx: Task { await isAvailable(.mlx) },
+            Provider.ollama: Task { await isAvailable(.ollama) },
+            Provider.anthropic: Task { await isAvailable(.anthropic) },
+            Provider.openai: Task { await isAvailable(.openai) },
+        ]
+
+        // Ensure we cancel any unused tasks when we exit
+        defer { tasks.values.forEach { $0.cancel() } }
+
+        var candidates: [Provider] = []
+
+        // Iterate through the chain in priority order
+        for providerType in defaultChain {
+            if let task = tasks[providerType], await task.value {
+                candidates.append(providerType)
+            }
+        }
+
+        if candidates.isEmpty {
+            throw ClaiError.noProviderAvailable
+        }
+
+        return candidates
+    }
+
+    /// Instantiate a provider of the given type
+    func instantiateProvider(_ type: Provider) async throws -> LLMProvider? {
+        try await createProvider(type)
+    }
+
+    private func isAvailable(_ type: Provider) async -> Bool {
+        switch type {
+        case .foundation:
+            #if canImport(FoundationModels)
+                if #available(macOS 26.0, iOS 26.0, *) {
+                    return PlatformDetector.current.supportsFoundationModel
+                }
+                return false
+            #else
+                return false
+            #endif
+        case .mlx:
+            return PlatformDetector.current.supportsMLX && MLXAvailabilityChecker.isMLXFunctional()
+        case .ollama:
+            return await OllamaChecker.isAvailable()
+        case .anthropic:
+            return !ProcessInfo.processInfo.environment["ANTHROPIC_API_KEY", default: ""].isEmpty
+        case .openai:
+            return !ProcessInfo.processInfo.environment["OPENAI_API_KEY", default: ""].isEmpty
+        }
     }
 
     private func createProvider(_ type: Provider) async throws -> LLMProvider? {

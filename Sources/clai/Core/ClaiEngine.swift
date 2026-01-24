@@ -163,10 +163,27 @@ final class ClaiEngine: Sendable {
             return GenerationResult(content: cached.response, wasStreamed: false, providerName: cached.provider)
         }
 
-        // Generate prompt (potentially slow operation, skipped on cache hit)
-        let prompt = try await promptProvider()
+        // Generate prompt and find provider concurrently to reduce startup latency
+        // Overlap context gathering (IO/Process) with provider discovery (Network/Checks)
+        async let promptTask = promptProvider()
+        async let candidatesTask = providerManager.getCandidateProviders()
 
-        let provider = try await providerManager.getAvailableProvider()
+        let prompt = try await promptTask
+        let candidates = try await candidatesTask
+
+        // Instantiate provider after concurrent phases are done
+        // This avoids UI conflicts if instantiation triggers a download (which outputs to terminal)
+        var selectedProvider: LLMProvider?
+        for type in candidates {
+            if let provider = try await providerManager.instantiateProvider(type) {
+                selectedProvider = provider
+                break
+            }
+        }
+
+        guard let provider = selectedProvider else {
+            throw ClaiError.noProviderAvailable
+        }
 
         if options.verbose {
             terminal.showInfo("Using provider: \(provider.name)")
