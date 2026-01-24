@@ -41,4 +41,18 @@ final class TextStylerTests: XCTestCase {
         let expected = "\u{001B}[1mbold \u{001B}[36mcode\u{001B}[39m bold\u{001B}[22m"
         XCTAssertEqual(TextStyler.apply(input), expected)
     }
+
+    func testApplyLink() {
+        let input = "[GitHub](https://github.com)"
+        // Accent([36m) + GitHub + Reset([39m) + " (" + Muted([90m) + URL + Reset([39m) + ")"
+        let expected = "\u{001B}[36mGitHub\u{001B}[39m (\u{001B}[90mhttps://github.com\u{001B}[39m)"
+        XCTAssertEqual(TextStyler.apply(input), expected)
+    }
+
+    func testApplyNestedLink() {
+        let input = "[**Bold**](url)"
+        // Accent([36m) + Bold([1m) + "Bold" + BoldOff([22m) + Reset([39m) + ...
+        let expected = "\u{001B}[36m\u{001B}[1mBold\u{001B}[22m\u{001B}[39m (\u{001B}[90murl\u{001B}[39m)"
+        XCTAssertEqual(TextStyler.apply(input), expected)
+    }
 }

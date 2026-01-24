@@ -17,6 +17,10 @@ enum TextStyler {
                 continue
             }
 
+            if processLink(chars, index: &index, result: &result, baseReset: baseReset) {
+                continue
+            }
+
             if processBold(chars, index: &index, result: &result, inBold: &inBold) {
                 continue
             }
@@ -64,6 +68,61 @@ enum TextStyler {
             result.append(chars[index])
             index += 1
         }
+        return true
+    }
+
+    private static func processLink(
+        _ chars: [Character],
+        index: inout Int,
+        result: inout String,
+        baseReset: String
+    ) -> Bool {
+        guard chars[index] == "[" else { return false }
+
+        // Find matching "]"
+        var labelEndIndex = index + 1
+        while labelEndIndex < chars.count {
+            if chars[labelEndIndex] == "]" { break }
+            labelEndIndex += 1
+        }
+
+        // Must find "]" and then "(" immediately
+        guard labelEndIndex < chars.count,
+              labelEndIndex + 1 < chars.count,
+              chars[labelEndIndex + 1] == "("
+        else {
+            return false
+        }
+
+        // Find matching ")"
+        var urlEndIndex = labelEndIndex + 2
+        while urlEndIndex < chars.count {
+            if chars[urlEndIndex] == ")" { break }
+            urlEndIndex += 1
+        }
+
+        guard urlEndIndex < chars.count else { return false }
+
+        // Extract content
+        let labelText = String(chars[index + 1 ..< labelEndIndex])
+        let urlText = String(chars[labelEndIndex + 2 ..< urlEndIndex])
+
+        // Process nested styles in label
+        // Use accent color as base for the link text so nested styles revert to it
+        let styledLabel = apply(labelText, baseReset: Theme.accent)
+
+        // Append formatted link: Label (URL)
+        result += Theme.accent
+        result += styledLabel
+        result += baseReset
+        result += " ("
+        result += Theme.muted
+        result += urlText
+        result += baseReset
+        result += ")"
+
+        // Advance index past ")"
+        index = urlEndIndex + 1
         return true
     }
 
