@@ -6,6 +6,8 @@ enum Theme {
     static let boldOff = "\u{001B}[22m"
     static let italic = "\u{001B}[3m"
     static let italicOff = "\u{001B}[23m"
+    static let underline = "\u{001B}[4m"
+    static let underlineOff = "\u{001B}[24m"
 
     // Foreground Colors
     static let red = "\u{001B}[31m"
