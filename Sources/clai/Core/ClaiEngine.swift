@@ -163,13 +163,10 @@ final class ClaiEngine: Sendable {
             return GenerationResult(content: cached.response, wasStreamed: false, providerName: cached.provider)
         }
 
-        // Generate prompt and find provider concurrently to reduce startup latency
-        // Overlap context gathering (IO/Process) with provider discovery (Network/Checks)
-        async let promptTask = promptProvider()
-        async let candidatesTask = providerManager.getCandidateProviders()
-
-        let prompt = try await promptTask
-        let candidates = try await candidatesTask
+        // Generate prompt and find provider sequentially
+        // (async let with closures causes data race errors in Swift 6)
+        let prompt = try await promptProvider()
+        let candidates = try await providerManager.getCandidateProviders()
 
         // Instantiate provider after concurrent phases are done
         // This avoids UI conflicts if instantiation triggers a download (which outputs to terminal)

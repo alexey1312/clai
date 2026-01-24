@@ -11,11 +11,23 @@ struct CommandContext: Sendable {
     }
 }
 
+/// Actor for caching tldr availability
+private actor TldrAvailabilityCache {
+    private var isTldrInstalled: Bool?
+
+    func get() -> Bool? {
+        isTldrInstalled
+    }
+
+    func set(_ value: Bool) {
+        isTldrInstalled = value
+    }
+}
+
 /// Gathers context about commands from help, man pages, and tldr
 final class ContextGatherer: Sendable {
-    /// Cached availability of tldr
-    private nonisolated(unsafe) static var isTldrInstalled: Bool?
-    private static let lock = NSLock()
+    /// Cached availability of tldr (actor-based for async safety)
+    private static let tldrCache = TldrAvailabilityCache()
 
     /// Gather all available context for a command
     func gather(for command: String) async throws -> CommandContext {
@@ -61,13 +73,10 @@ final class ContextGatherer: Sendable {
 
     /// Check if tldr is installed, caching the result
     private static func checkTldrAvailability() async -> Bool {
-        // Check cache first (needs lock for thread safety)
-        lock.lock()
-        if let installed = isTldrInstalled {
-            lock.unlock()
+        // Check cache first (actor-based for async safety)
+        if let installed = await tldrCache.get() {
             return installed
         }
-        lock.unlock()
 
         // Not cached, check system
         // Note: We instantiate a temporary gatherer just to run the command
@@ -75,9 +84,7 @@ final class ContextGatherer: Sendable {
         let installed = await (try? ContextGatherer().runCommand("which tldr")) != nil
 
         // Update cache
-        lock.lock()
-        isTldrInstalled = installed
-        lock.unlock()
+        await tldrCache.set(installed)
 
         return installed
     }

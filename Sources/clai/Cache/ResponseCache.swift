@@ -62,6 +62,7 @@ final class ResponseCache: @unchecked Sendable {
     }
 
     /// Execute a block with the database connection
+    @discardableResult
     private func withConnection<T>(_ block: (Connection) throws -> T) throws -> T {
         lock.lock()
         defer { lock.unlock() }
