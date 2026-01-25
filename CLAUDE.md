@@ -152,6 +152,35 @@ Clai.swift (entry point, ArgumentParser)
 - **Noora** - Terminal UI components
 - **SQLite.swift** - Response caching
 
+### Noora UI Guidelines
+
+**Noora** is Tuist's terminal UI library. Use it for interactive CLI components on macOS (not available on Linux).
+
+**When to use Noora components (via TerminalUI wrapper):**
+- `yesOrNoChoicePrompt` — Yes/no questions with arrow key navigation
+- `singleChoicePrompt` — Single selection from list with filtering
+- `success()`, `warning()`, `error()` — Styled alert messages
+
+**Use Noora directly (no wrapper needed):**
+- `progressBarStep` — Progress bars for downloads (see ProviderManager.swift)
+
+**Implementation pattern:**
+```swift
+#if os(Linux)
+    // Fallback to simple print/readLine for Linux
+#else
+    // Use Noora components
+    noora.yesOrNoChoicePrompt(question: "Continue?", defaultAnswer: false)
+#endif
+```
+
+**Keep custom implementations for:**
+- `Spinner` — Works on Linux, simple use case
+- `showInfo()` — Plain text output (not alerts)
+- Markdown rendering — Custom implementation in `showStyledResponse()`
+
+**Reference:** https://github.com/tuist/Noora
+
 ### Data Flow
 1. User runs `clai explain "git rebase -i"`
 2. `ContextGatherer` fetches `--help` and man page content concurrently

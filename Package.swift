@@ -14,7 +14,7 @@ import PackageDescription
     let platformTargetDependencies: [Target.Dependency] = []
 #else
     let platformDependencies: [Package.Dependency] = [
-        .package(url: "https://github.com/tuist/Noora", from: "0.53.0"),
+        .package(url: "https://github.com/tuist/Noora", from: "0.54.0"),
     ]
     let platformTargetDependencies: [Target.Dependency] = [
         .product(name: "Noora", package: "Noora"),
