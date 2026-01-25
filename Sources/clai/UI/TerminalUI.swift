@@ -226,7 +226,10 @@ final class TerminalUI: @unchecked Sendable {
                 let indent = lineStr.prefix(while: { $0 == " " }).count
                 let content = String(trimmed.dropFirst(2))
                 let padding = String(repeating: " ", count: 2 + indent)
-                print("\(padding)• \(TextStyler.apply(content))")
+                let level = indent / 2
+                let bullets = ["•", "◦", "▪"]
+                let bullet = bullets[min(level, bullets.count - 1)]
+                print("\(padding)\(Theme.accent)\(bullet)\(Theme.reset) \(TextStyler.apply(content))")
             }
             // Blockquotes (> )
             else if lineStr.hasPrefix("> ") {
@@ -260,7 +263,7 @@ final class TerminalUI: @unchecked Sendable {
                 let numberPart = prefix.trimmingCharacters(in: .whitespaces)
                 let content = String(lineStr[match.upperBound...])
                 let padding = String(repeating: " ", count: 2 + indent)
-                print("\(padding)\(numberPart) \(TextStyler.apply(content))")
+                print("\(padding)\(Theme.accent)\(numberPart)\(Theme.reset) \(TextStyler.apply(content))")
             }
             // Regular text
             else {
