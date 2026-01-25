@@ -159,8 +159,10 @@ Clai.swift (entry point, ArgumentParser)
 **When to use Noora components (via TerminalUI wrapper):**
 - `yesOrNoChoicePrompt` — Yes/no questions with arrow key navigation
 - `singleChoicePrompt` — Single selection from list with filtering
-- `progressBarStep` — Progress bars for downloads/long operations
 - `success()`, `warning()`, `error()` — Styled alert messages
+
+**Use Noora directly (no wrapper needed):**
+- `progressBarStep` — Progress bars for downloads (see ProviderManager.swift)
 
 **Implementation pattern:**
 ```swift

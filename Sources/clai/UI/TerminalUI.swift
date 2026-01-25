@@ -317,6 +317,9 @@ final class TerminalUI: @unchecked Sendable {
         _ question: String,
         options _: T.Type
     ) async -> T? where T.RawValue == String {
+        // Guard against empty options to prevent crash
+        guard !T.allCases.isEmpty else { return nil }
+
         #if os(Linux)
             print()
             print(Theme.applyBold(question))
