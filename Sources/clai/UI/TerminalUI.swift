@@ -295,39 +295,58 @@ final class TerminalUI: @unchecked Sendable {
     // MARK: - Prompts
 
     func promptYesNo(_ question: String) async -> Bool {
-        print("\(question) [y/N] ", terminator: "")
-        flushStdout()
+        #if os(Linux)
+            print("\(question) [y/N] ", terminator: "")
+            flushStdout()
 
-        guard let line = readLine()?.lowercased() else {
-            return false
-        }
+            guard let line = readLine()?.lowercased() else {
+                return false
+            }
 
-        return line == "y" || line == "yes"
+            return line == "y" || line == "yes"
+        #else
+            // Use Noora's interactive yes/no prompt with arrow key navigation
+            return noora.yesOrNoChoicePrompt(
+                question: question,
+                defaultAnswer: false
+            )
+        #endif
     }
 
     func promptChoice<T: CaseIterable & RawRepresentable>(
         _ question: String,
-        options: T.Type
+        options _: T.Type
     ) async -> T? where T.RawValue == String {
-        print()
-        print(Theme.applyBold(question))
-        print()
-        for (index, option) in T.allCases.enumerated() {
-            print("  \(Theme.muted)[\(Theme.accent)\(index + 1)\(Theme.muted)]\(Theme.reset) \(option.rawValue)")
-        }
-        print()
-        print("Choose \(Theme.accent)[1-\(T.allCases.count)]\(Theme.reset): ", terminator: "")
-        flushStdout()
+        #if os(Linux)
+            print()
+            print(Theme.applyBold(question))
+            print()
+            for (index, option) in T.allCases.enumerated() {
+                print("  \(Theme.muted)[\(Theme.accent)\(index + 1)\(Theme.muted)]\(Theme.reset) \(option.rawValue)")
+            }
+            print()
+            print("Choose \(Theme.accent)[1-\(T.allCases.count)]\(Theme.reset): ", terminator: "")
+            flushStdout()
 
-        guard let line = readLine(),
-              let index = Int(line),
-              index >= 1,
-              index <= T.allCases.count
-        else {
-            return nil
-        }
+            guard let line = readLine(),
+                  let index = Int(line),
+                  index >= 1,
+                  index <= T.allCases.count
+            else {
+                return nil
+            }
 
-        return Array(T.allCases)[index - 1]
+            return Array(T.allCases)[index - 1]
+        #else
+            // Use Noora's interactive single choice prompt with arrow key navigation
+            let options = T.allCases.map(\.rawValue)
+            let selected = noora.singleChoicePrompt(
+                question: question,
+                options: options
+            )
+            // Find the matching case by raw value
+            return T.allCases.first { $0.rawValue == selected }
+        #endif
     }
 
     /// Prompt for MLX model download consent
