@@ -153,7 +153,7 @@ final class ClaiEngine: Sendable {
     private func generateResponse(
         cacheKey: String?,
         loadingMessage: String = "Generating response...",
-        promptProvider: () async throws -> String
+        promptProvider: @Sendable () async throws -> String
     ) async throws -> GenerationResult {
         // Check cache first (if not disabled)
         if let cacheKey, let cache, let cached = try? cache.get(key: cacheKey) {
@@ -163,10 +163,12 @@ final class ClaiEngine: Sendable {
             return GenerationResult(content: cached.response, wasStreamed: false, providerName: cached.provider)
         }
 
-        // Generate prompt and find provider sequentially
-        // (async let with closures causes data race errors in Swift 6)
-        let prompt = try await promptProvider()
-        let candidates = try await providerManager.getCandidateProviders()
+        // Generate prompt and find provider concurrently
+        async let promptTask = promptProvider()
+        async let candidatesTask = providerManager.getCandidateProviders()
+
+        let prompt = try await promptTask
+        let candidates = try await candidatesTask
 
         // Instantiate provider after concurrent phases are done
         // This avoids UI conflicts if instantiation triggers a download (which outputs to terminal)
