@@ -151,18 +151,40 @@ final class TerminalUI: @unchecked Sendable {
 
     /// Display styled markdown-like response
     private func showStyledResponse(_ response: String) {
-        let lines = response.split(separator: "\n", omittingEmptySubsequences: false)
+        let lines = response.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         var inCodeBlock = false
         var activeCallout: CalloutStyle?
 
-        for line in lines {
-            let lineStr = String(line)
+        var i = 0
+        while i < lines.count {
+            let lineStr = lines[i]
             let trimmed = lineStr.trimmingCharacters(in: .whitespaces)
 
-            // Reset callout if line is not a blockquote and not inside a code block
-            // Note: We check this early but only clear if we confirm it's not a blockquote below
-            // Actually, simplified logic: if we hit a non-blockquote line (and not in code block), clear it.
-            // But we can just handle it in the "else" block or specific blocks.
+            // Table detection
+            if !inCodeBlock && trimmed.contains("|") && i + 1 < lines.count {
+                let nextLine = lines[i + 1].trimmingCharacters(in: .whitespaces)
+                let isDelimiter = nextLine.contains("|") && nextLine.contains("-") && nextLine.allSatisfy { "|- :".contains($0) }
+
+                if isDelimiter {
+                    activeCallout = nil
+                    var tableLines = [lineStr]
+                    i += 1
+                    tableLines.append(lines[i])
+                    i += 1
+
+                    while i < lines.count {
+                        let nextRow = lines[i]
+                        if nextRow.trimmingCharacters(in: .whitespaces).contains("|") {
+                            tableLines.append(nextRow)
+                            i += 1
+                        } else {
+                            break
+                        }
+                    }
+                    renderTable(tableLines)
+                    continue
+                }
+            }
 
             // Code blocks (```)
             if lineStr.hasPrefix("```") {
@@ -187,12 +209,14 @@ final class TerminalUI: @unchecked Sendable {
                     let line = String(repeating: "─", count: max(0, terminalWidth - 1))
                     print("\(Theme.muted)╰\(line)\(Theme.reset)")
                 }
+                i += 1
                 continue
             }
 
             // Inside code block
             if inCodeBlock {
                 print("\(Theme.muted)│\(Theme.reset) \(Theme.code)\(lineStr)\(Theme.reset)")
+                i += 1
                 continue
             }
 
@@ -203,6 +227,7 @@ final class TerminalUI: @unchecked Sendable {
                 activeCallout = nil
                 let line = String(repeating: "─", count: terminalWidth)
                 print("\(Theme.muted)\(line)\(Theme.reset)")
+                i += 1
                 continue
             }
 
@@ -241,6 +266,7 @@ final class TerminalUI: @unchecked Sendable {
                     print(
                         "  \(callout.color)│\(Theme.reset) \(callout.color)\(Theme.bold)\(callout.icon) \(callout.title)\(Theme.reset)"
                     )
+                    i += 1
                     continue
                 }
 
@@ -270,6 +296,8 @@ final class TerminalUI: @unchecked Sendable {
                 activeCallout = nil
                 print(TextStyler.apply(lineStr))
             }
+
+            i += 1
         }
     }
 
@@ -407,6 +435,123 @@ final class TerminalUI: @unchecked Sendable {
             return Int(w.ws_col)
         }
         return 80
+    }
+
+    /// Calculate visible width of string (ignoring ANSI codes)
+    private func visibleWidth(_ text: String) -> Int {
+        var count = 0
+        var insideEscape = false
+        for char in text {
+            if char == "\u{001B}" {
+                insideEscape = true
+            } else if insideEscape && char == "m" {
+                insideEscape = false
+            } else if !insideEscape {
+                count += 1
+            }
+        }
+        return count
+    }
+
+    private func renderTable(_ lines: [String]) {
+        guard lines.count >= 2 else { return }
+
+        // Helper to split row
+        func splitRow(_ line: String) -> [String] {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            var parts = trimmed.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+            if trimmed.hasPrefix("|") && parts.first?.isEmpty == true { parts.removeFirst() }
+            if trimmed.hasSuffix("|") && parts.last?.isEmpty == true { parts.removeLast() }
+            return parts.map { $0.trimmingCharacters(in: .whitespaces) }
+        }
+
+        let headerRaw = splitRow(lines[0])
+        let delimiterRaw = splitRow(lines[1])
+        let bodyRaw = lines.dropFirst(2).map(splitRow)
+
+        let colCount = headerRaw.count
+        guard colCount > 0 else { return }
+
+        // Determine alignments
+        enum Alignment { case left, center, right }
+        let alignments: [Alignment] = delimiterRaw.map { cell in
+            if cell.hasPrefix(":") && cell.hasSuffix(":") { return .center }
+            if cell.hasSuffix(":") { return .right }
+            return .left
+        }
+
+        // Prepare styled content
+        let headerStyled = headerRaw.map { TextStyler.apply($0) }
+        let bodyStyled = bodyRaw.map { row in
+            let padded = row + Array(repeating: "", count: max(0, colCount - row.count))
+            return padded.prefix(colCount).map { TextStyler.apply($0) }
+        }
+
+        // Calculate widths
+        var widths = headerStyled.map { visibleWidth($0) }
+        for row in bodyStyled {
+            for (i, cell) in row.enumerated() {
+                if i < widths.count {
+                    widths[i] = max(widths[i], visibleWidth(cell))
+                }
+            }
+        }
+
+        // Render
+        func printSeparator(left: String, mid: String, cross: String, right: String) {
+            var line = ""
+            line += Theme.muted + left + Theme.reset
+            for (i, w) in widths.enumerated() {
+                line += Theme.muted + String(repeating: mid, count: w + 2) + Theme.reset
+                if i < widths.count - 1 {
+                    line += Theme.muted + cross + Theme.reset
+                }
+            }
+            line += Theme.muted + right + Theme.reset
+            print(line)
+        }
+
+        func printRow(_ cells: [String]) {
+            var line = ""
+            line += Theme.muted + "│" + Theme.reset
+            for i in 0 ..< colCount {
+                let cell = (i < cells.count) ? cells[i] : ""
+                let w = widths[i]
+                let contentW = visibleWidth(cell)
+                let align = (i < alignments.count) ? alignments[i] : .left
+
+                let totalPad = w + 2 - contentW
+                let leftP: Int
+                let rightP: Int
+
+                switch align {
+                case .left:
+                    leftP = 1
+                    rightP = totalPad - 1
+                case .right:
+                    rightP = 1
+                    leftP = totalPad - 1
+                case .center:
+                    leftP = totalPad / 2
+                    rightP = totalPad - leftP
+                }
+
+                line += String(repeating: " ", count: leftP) + cell + String(repeating: " ", count: rightP)
+                if i < colCount - 1 {
+                    line += Theme.muted + "│" + Theme.reset
+                }
+            }
+            line += Theme.muted + "│" + Theme.reset
+            print(line)
+        }
+
+        printSeparator(left: "╭", mid: "─", cross: "┬", right: "╮")
+        printRow(headerStyled)
+        printSeparator(left: "├", mid: "─", cross: "┼", right: "┤")
+        for row in bodyStyled {
+            printRow(row)
+        }
+        printSeparator(left: "╰", mid: "─", cross: "┴", right: "╯")
     }
 
     private func formatAsJSON(_ response: String) -> String {

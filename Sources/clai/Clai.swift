@@ -56,6 +56,7 @@ struct Clai: AsyncParsableCommand {
             ModelsCommand.self,
             DocsCommand.self,
             ManPageGenCommand.self,
+            UITestCommand.self,
         ],
         defaultSubcommand: ExplainCommand.self
     )
