@@ -163,17 +163,16 @@ final class ClaiEngine: Sendable {
             return GenerationResult(content: cached.response, wasStreamed: false, providerName: cached.provider)
         }
 
-        // Generate prompt and find provider concurrently
-        async let promptTask = promptProvider()
-        async let candidatesTask = providerManager.getCandidateProviders()
+        // Generate prompt and start availability checks concurrently
+        // Note: candidateProvidersStream() launches background tasks immediately
+        let candidatesStream = providerManager.candidateProvidersStream()
 
-        let prompt = try await promptTask
-        let candidates = try await candidatesTask
+        let prompt = try await promptProvider()
 
         // Instantiate provider after concurrent phases are done
         // This avoids UI conflicts if instantiation triggers a download (which outputs to terminal)
         var selectedProvider: LLMProvider?
-        for type in candidates {
+        for await type in candidatesStream {
             if let provider = try await providerManager.instantiateProvider(type) {
                 selectedProvider = provider
                 break
@@ -181,6 +180,9 @@ final class ClaiEngine: Sendable {
         }
 
         guard let provider = selectedProvider else {
+            if let preferred = options.provider {
+                throw ClaiError.providerUnavailable(preferred.rawValue)
+            }
             throw ClaiError.noProviderAvailable
         }
 
@@ -188,35 +190,11 @@ final class ClaiEngine: Sendable {
             terminal.showInfo("Using provider: \(provider.name)")
         }
 
-        var response: String
-        let wasStreamed: Bool
-
-        // Use streaming only if requested AND provider supports it
-        let useStreaming = options.stream && provider.supportsStreaming
-
-        if useStreaming {
-            terminal.clearLine()
-            let streamFilter = ThinkingTagStreamFilter()
-            response = try await provider.generateStreaming(prompt: prompt) { chunk in
-                let filtered = streamFilter.process(chunk)
-                if !filtered.isEmpty {
-                    self.terminal.appendStreamChunk(filtered)
-                }
-            }
-            // Flush any remaining buffered content
-            let remaining = streamFilter.flush()
-            if !remaining.isEmpty {
-                terminal.appendStreamChunk(remaining)
-            }
-            terminal.endStream()
-            wasStreamed = true
-        } else {
-            terminal.clearLine()
-            response = try await terminal.withSpinner(loadingMessage) {
-                try await provider.generate(prompt: prompt)
-            }
-            wasStreamed = false
-        }
+        var (response, wasStreamed) = try await executeGeneration(
+            provider: provider,
+            prompt: prompt,
+            loadingMessage: loadingMessage
+        )
 
         // Strip any thinking tags from the final response
         response = Self.stripThinkingTags(response)
@@ -232,6 +210,38 @@ final class ClaiEngine: Sendable {
         }
 
         return GenerationResult(content: response, wasStreamed: wasStreamed, providerName: provider.name)
+    }
+
+    private func executeGeneration(
+        provider: LLMProvider,
+        prompt: String,
+        loadingMessage: String
+    ) async throws -> (String, Bool) {
+        let useStreaming = options.stream && provider.supportsStreaming
+
+        if useStreaming {
+            terminal.clearLine()
+            let streamFilter = ThinkingTagStreamFilter()
+            let response = try await provider.generateStreaming(prompt: prompt) { chunk in
+                let filtered = streamFilter.process(chunk)
+                if !filtered.isEmpty {
+                    self.terminal.appendStreamChunk(filtered)
+                }
+            }
+            // Flush any remaining buffered content
+            let remaining = streamFilter.flush()
+            if !remaining.isEmpty {
+                terminal.appendStreamChunk(remaining)
+            }
+            terminal.endStream()
+            return (response, true)
+        } else {
+            terminal.clearLine()
+            let response = try await terminal.withSpinner(loadingMessage) {
+                try await provider.generate(prompt: prompt)
+            }
+            return (response, false)
+        }
     }
 
     /// Remove <think>...</think> tags from model output
