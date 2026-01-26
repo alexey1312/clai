@@ -32,53 +32,77 @@ final class ProviderManager: Sendable {
 
     /// Get the first available provider from the chain
     func getAvailableProvider() async throws -> LLMProvider {
-        let candidates = try await getCandidateProviders()
-
-        for type in candidates {
+        for await type in candidateProvidersStream() {
             if let provider = try await instantiateProvider(type) {
                 return provider
             }
         }
 
         // If we had candidates but they all failed to instantiate (e.g. download errors)
+        // or if preferred provider was unavailable
         if let preferred = preferredProvider {
             throw ClaiError.providerUnavailable(preferred.rawValue)
         }
         throw ClaiError.noProviderAvailable
     }
 
+    /// Returns an async sequence of providers that are available.
+    /// Checks are performed in parallel, but yielded in priority order.
+    func candidateProvidersStream() -> AsyncStream<Provider> {
+        AsyncStream { continuation in
+            // If user specified a provider, check only that one
+            if let preferred = self.preferredProvider {
+                Task {
+                    if await self.isAvailable(preferred) {
+                        continuation.yield(preferred)
+                    }
+                    continuation.finish()
+                }
+                return
+            }
+
+            // Check providers in parallel to hide latency (especially for network checks like Ollama)
+            let tasks = [
+                Provider.foundation: Task { await isAvailable(.foundation) },
+                Provider.mlx: Task { await isAvailable(.mlx) },
+                Provider.ollama: Task { await isAvailable(.ollama) },
+                Provider.anthropic: Task { await isAvailable(.anthropic) },
+                Provider.openai: Task { await isAvailable(.openai) },
+            ]
+
+            let chain = self.defaultChain
+
+            let task = Task {
+                // Ensure we cancel any unused tasks when we exit
+                defer { tasks.values.forEach { $0.cancel() } }
+
+                for providerType in chain {
+                    if Task.isCancelled { break }
+
+                    if let task = tasks[providerType], await task.value {
+                        continuation.yield(providerType)
+                    }
+                }
+                continuation.finish()
+            }
+
+            continuation.onTermination = { _ in
+                task.cancel()
+            }
+        }
+    }
+
     /// Get a list of available providers, prioritizing user preference and default chain
     func getCandidateProviders() async throws -> [Provider] {
-        // If user specified a provider, check only that one
-        if let preferred = preferredProvider {
-            if await isAvailable(preferred) {
-                return [preferred]
-            }
-            throw ClaiError.providerUnavailable(preferred.rawValue)
-        }
-
-        // Check providers in parallel to hide latency (especially for network checks like Ollama)
-        let tasks = [
-            Provider.foundation: Task { await isAvailable(.foundation) },
-            Provider.mlx: Task { await isAvailable(.mlx) },
-            Provider.ollama: Task { await isAvailable(.ollama) },
-            Provider.anthropic: Task { await isAvailable(.anthropic) },
-            Provider.openai: Task { await isAvailable(.openai) },
-        ]
-
-        // Ensure we cancel any unused tasks when we exit
-        defer { tasks.values.forEach { $0.cancel() } }
-
         var candidates: [Provider] = []
-
-        // Iterate through the chain in priority order
-        for providerType in defaultChain {
-            if let task = tasks[providerType], await task.value {
-                candidates.append(providerType)
-            }
+        for await provider in candidateProvidersStream() {
+            candidates.append(provider)
         }
 
         if candidates.isEmpty {
+            if let preferred = preferredProvider {
+                throw ClaiError.providerUnavailable(preferred.rawValue)
+            }
             throw ClaiError.noProviderAvailable
         }
 
