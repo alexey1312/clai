@@ -24,6 +24,8 @@ final class ResponseCache: @unchecked Sendable {
         // Optimize startup: Run cleanup in background
         // This avoids blocking ClaiEngine initialization on DB operations
         Task { [weak self] in
+            // Delay cleanup to ensure it doesn't contend with the first request
+            try? await Task.sleep(for: .seconds(2))
             try? self?.cleanupExpired()
         }
     }
