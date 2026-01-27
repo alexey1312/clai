@@ -154,30 +154,18 @@ Clai.swift (entry point, ArgumentParser)
 
 ### Noora UI Guidelines
 
-**Noora** is Tuist's terminal UI library. Use it for interactive CLI components on macOS (not available on Linux).
+**Noora** is Tuist's terminal UI library for macOS and Linux. **Always prefer Noora over custom implementations.**
 
-**When to use Noora components (via TerminalUI wrapper):**
-- `yesOrNoChoicePrompt` — Yes/no questions with arrow key navigation
-- `singleChoicePrompt` — Single selection from list with filtering
-- `success()`, `warning()`, `error()` — Styled alert messages
+**Prefer Noora for:**
+- `table()` — Tables (markdown tables rendered via Noora)
+- `yesOrNoChoicePrompt()` — Yes/no questions
+- `singleChoicePrompt()` — Single selection from list
+- `success()`, `warning()`, `error()` — Styled alerts
+- `progressBarStep()` — Progress bars
 
-**Use Noora directly (no wrapper needed):**
-- `progressBarStep` — Progress bars for downloads (see ProviderManager.swift)
-
-**Implementation pattern:**
-```swift
-#if os(Linux)
-    // Fallback to simple print/readLine for Linux
-#else
-    // Use Noora components
-    noora.yesOrNoChoicePrompt(question: "Continue?", defaultAnswer: false)
-#endif
-```
-
-**Keep custom implementations for:**
-- `Spinner` — Works on Linux, simple use case
-- `showInfo()` — Plain text output (not alerts)
-- Markdown rendering — Custom implementation in `showStyledResponse()`
+**Keep custom implementations only for:**
+- `Spinner` — Simple use case, cross-platform
+- `showInfo()` — Plain text output
 
 **Reference:** https://github.com/tuist/Noora
 

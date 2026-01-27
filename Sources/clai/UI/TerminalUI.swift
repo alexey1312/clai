@@ -6,9 +6,7 @@ import Foundation
     import Darwin
 #endif
 
-#if !os(Linux)
-    import Noora
-#endif
+import Noora
 
 /// Flush stdout in a concurrency-safe manner
 @inline(__always)
@@ -32,17 +30,13 @@ enum ModelDownloadChoice: String, CaseIterable {
     case skip = "Skip for now"
 }
 
-/// Terminal UI wrapper using Noora components on macOS, plain ANSI on Linux
+/// Terminal UI wrapper using Noora components
 final class TerminalUI: @unchecked Sendable {
-    #if !os(Linux)
-        private let noora: Noora
-    #endif
+    private let noora: Noora
     private let verbose: Bool
 
     init(verbose: Bool = false) {
-        #if !os(Linux)
-            noora = Noora()
-        #endif
+        noora = Noora()
         self.verbose = verbose
     }
 
@@ -96,27 +90,15 @@ final class TerminalUI: @unchecked Sendable {
     // MARK: - Alerts
 
     func showSuccess(_ message: String) {
-        #if os(Linux)
-            print("\(Theme.success)✓ \(message)\(Theme.reset)")
-        #else
-            noora.success(.alert(TerminalText(stringLiteral: message)))
-        #endif
+        noora.success(.alert(TerminalText(stringLiteral: message)))
     }
 
     func showWarning(_ message: String) {
-        #if os(Linux)
-            print("\(Theme.warning)⚠ \(message)\(Theme.reset)")
-        #else
-            noora.warning(.alert(TerminalText(stringLiteral: message)))
-        #endif
+        noora.warning(.alert(TerminalText(stringLiteral: message)))
     }
 
     func showError(_ message: String) {
-        #if os(Linux)
-            print("\(Theme.error)✗ \(message)\(Theme.reset)")
-        #else
-            noora.error(.alert(TerminalText(stringLiteral: message)))
-        #endif
+        noora.error(.alert(TerminalText(stringLiteral: message)))
     }
 
     func showInfo(_ message: String) {
@@ -142,11 +124,12 @@ final class TerminalUI: @unchecked Sendable {
         switch format {
         case .plain:
             print()
-            var renderer = MarkdownRenderer(terminalWidth: terminalWidth)
+            var renderer = MarkdownRenderer(terminalWidth: terminalWidth) { [noora] headers, rows in
+                noora.table(headers: headers, rows: rows)
+            }
             renderer.render(response)
         case .json:
-            let json = formatAsJSON(response)
-            print(json)
+            print(formatAsJSON(response))
         }
     }
 
@@ -172,22 +155,10 @@ final class TerminalUI: @unchecked Sendable {
     // MARK: - Prompts
 
     func promptYesNo(_ question: String) async -> Bool {
-        #if os(Linux)
-            print("\(question) [y/N] ", terminator: "")
-            flushStdout()
-
-            guard let line = readLine()?.lowercased() else {
-                return false
-            }
-
-            return line == "y" || line == "yes"
-        #else
-            // Use Noora's interactive yes/no prompt with arrow key navigation
-            return noora.yesOrNoChoicePrompt(
-                question: question,
-                defaultAnswer: false
-            )
-        #endif
+        noora.yesOrNoChoicePrompt(
+            question: TerminalText(stringLiteral: question),
+            defaultAnswer: false
+        )
     }
 
     func promptChoice<T: CaseIterable & RawRepresentable>(
@@ -197,16 +168,11 @@ final class TerminalUI: @unchecked Sendable {
         guard !T.allCases.isEmpty else { return nil }
 
         let options = T.allCases.map(\.rawValue)
-
-        #if os(Linux)
-            guard let selected = promptNumberedList(question: question, options: options, defaultIndex: nil) else {
-                return nil
-            }
-            return T.allCases.first { $0.rawValue == selected }
-        #else
-            let selected = noora.singleChoicePrompt(question: question, options: options)
-            return T.allCases.first { $0.rawValue == selected }
-        #endif
+        let selected = noora.singleChoicePrompt(
+            question: TerminalText(stringLiteral: question),
+            options: options
+        )
+        return T.allCases.first { $0.rawValue == selected }
     }
 
     /// Prompt for MLX model download consent
@@ -228,54 +194,16 @@ final class TerminalUI: @unchecked Sendable {
     func promptProviderSelection(available: [String]) async -> String? {
         guard !available.isEmpty else { return nil }
 
-        #if os(Linux)
-            return promptNumberedList(
-                question: "Multiple providers available:",
-                options: available,
-                defaultIndex: 0
-            )
-        #else
-            print()
-            let selected = noora.singleChoicePrompt(
-                question: "Multiple providers available:",
-                options: available
-            )
-            return selected
-        #endif
+        print()
+        return noora.singleChoicePrompt(
+            question: TerminalText(stringLiteral: "Multiple providers available:"),
+            options: available
+        )
     }
 
     // MARK: - Private
 
-    /// Display a numbered list and prompt for selection (Linux fallback for interactive prompts)
-    private func promptNumberedList(question: String, options: [String], defaultIndex: Int?) -> String? {
-        guard !options.isEmpty else { return nil }
-
-        print()
-        print(Theme.applyBold(question))
-        print()
-        for (index, option) in options.enumerated() {
-            let num = index + 1
-            print("  \(Theme.muted)[\(Theme.accent)\(num)\(Theme.muted)]\(Theme.reset) \(option)")
-        }
-        print()
-        print("Choose \(Theme.accent)[1-\(options.count)]\(Theme.reset): ", terminator: "")
-        flushStdout()
-
-        guard let line = readLine(),
-              let index = Int(line),
-              index >= 1,
-              index <= options.count
-        else {
-            if let defaultIndex, defaultIndex >= 0, defaultIndex < options.count {
-                return options[defaultIndex]
-            }
-            return nil
-        }
-
-        return options[index - 1]
-    }
-
-    var terminalWidth: Int {
+    private var terminalWidth: Int {
         var winSize = winsize()
         #if os(Linux)
             let result = ioctl(FileHandle.standardOutput.fileDescriptor, UInt(TIOCGWINSZ), &winSize)

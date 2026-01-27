@@ -8,18 +8,12 @@ import PackageDescription
     let anyLanguageModelTraits: Set<Package.Dependency.Trait> = ["MLX"]
 #endif
 
-// Noora uses Observation which has linker issues on Linux
-#if os(Linux)
-    let platformDependencies: [Package.Dependency] = []
-    let platformTargetDependencies: [Target.Dependency] = []
-#else
-    let platformDependencies: [Package.Dependency] = [
-        .package(url: "https://github.com/tuist/Noora", from: "0.54.0"),
-    ]
-    let platformTargetDependencies: [Target.Dependency] = [
-        .product(name: "Noora", package: "Noora"),
-    ]
-#endif
+let platformDependencies: [Package.Dependency] = [
+    .package(url: "https://github.com/tuist/Noora", from: "0.54.0"),
+]
+let platformTargetDependencies: [Target.Dependency] = [
+    .product(name: "Noora", package: "Noora"),
+]
 
 let package = Package(
     name: "clai",

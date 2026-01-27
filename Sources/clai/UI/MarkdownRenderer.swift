@@ -2,11 +2,16 @@ import Foundation
 
 /// Renders markdown content to styled terminal output
 struct MarkdownRenderer {
+    /// Callback for rendering tables externally (e.g., via Noora)
+    typealias TableHandler = (_ headers: [String], _ rows: [[String]]) -> Void
+
     private let terminalWidth: Int
+    private let tableHandler: TableHandler?
     private var activeCallout: CalloutStyle?
 
-    init(terminalWidth: Int) {
+    init(terminalWidth: Int, tableHandler: TableHandler? = nil) {
         self.terminalWidth = terminalWidth
+        self.tableHandler = tableHandler
         activeCallout = nil
     }
 
@@ -200,25 +205,33 @@ struct MarkdownRenderer {
     private func renderTable(_ lines: [String]) {
         guard lines.count >= 2 else { return }
 
+        let (headers, rows) = parseMarkdownTable(lines)
+        guard !headers.isEmpty else { return }
+
+        if let tableHandler {
+            // Delegate to external renderer (e.g., Noora)
+            tableHandler(headers, rows)
+        } else {
+            // Fallback when no handler provided
+            renderTableFallback(headers: headers, rows: rows)
+        }
+    }
+
+    /// Parse markdown table into structured data (headers and rows as plain text)
+    private func parseMarkdownTable(_ lines: [String]) -> (headers: [String], rows: [[String]]) {
         let headerRaw = splitRow(lines[0])
-        let delimiterRaw = splitRow(lines[1])
         let bodyRaw = lines.dropFirst(2).map(splitRow)
 
-        let colCount = headerRaw.count
-        guard colCount > 0 else { return }
+        // Strip markdown formatting, keep plain text
+        let headers = headerRaw.map { stripMarkdown($0) }
+        let colCount = headers.count
 
-        let alignments = parseAlignments(delimiterRaw)
-        let headerStyled = headerRaw.map { TextStyler.apply($0) }
-        let bodyStyled = prepareBodyRows(bodyRaw, colCount: colCount)
-        let widths = calculateColumnWidths(header: headerStyled, body: bodyStyled)
-
-        printTableSeparator(widths: widths, left: "╭", mid: "─", cross: "┬", right: "╮")
-        printTableRow(headerStyled, widths: widths, alignments: alignments, colCount: colCount)
-        printTableSeparator(widths: widths, left: "├", mid: "─", cross: "┼", right: "┤")
-        for row in bodyStyled {
-            printTableRow(row, widths: widths, alignments: alignments, colCount: colCount)
+        let rows = bodyRaw.map { row -> [String] in
+            let padded = row + Array(repeating: "", count: max(0, colCount - row.count))
+            return Array(padded.prefix(colCount).map { stripMarkdown($0) })
         }
-        printTableSeparator(widths: widths, left: "╰", mid: "─", cross: "┴", right: "╯")
+
+        return (headers, rows)
     }
 
     private func splitRow(_ line: String) -> [String] {
@@ -229,103 +242,58 @@ struct MarkdownRenderer {
         return parts.map { $0.trimmingCharacters(in: .whitespaces) }
     }
 
-    private func parseAlignments(_ delimiterRaw: [String]) -> [TableAlignment] {
-        delimiterRaw.map { cell in
-            if cell.hasPrefix(":"), cell.hasSuffix(":") { return .center }
-            if cell.hasSuffix(":") { return .right }
-            return .left
-        }
+    /// Remove markdown inline formatting (bold, italic, code)
+    private func stripMarkdown(_ text: String) -> String {
+        var result = text
+        // Remove bold (**text** or __text__)
+        result = result.replacingOccurrences(of: "**", with: "")
+        result = result.replacingOccurrences(of: "__", with: "")
+        // Remove inline code (`code`)
+        result = result.replacingOccurrences(of: "`", with: "")
+        // Note: single underscores for italic are tricky (could be part of identifiers)
+        // so we only remove double underscores above
+        return result
     }
 
-    private func prepareBodyRows(_ bodyRaw: [[String]], colCount: Int) -> [[String]] {
-        bodyRaw.map { row in
-            let padded = row + Array(repeating: "", count: max(0, colCount - row.count))
-            return Array(padded.prefix(colCount).map { TextStyler.apply($0) })
-        }
-    }
+    /// Simple ASCII table fallback when no handler is provided
+    private func renderTableFallback(headers: [String], rows: [[String]]) {
+        let colCount = headers.count
+        guard colCount > 0 else { return }
 
-    private func calculateColumnWidths(header: [String], body: [[String]]) -> [Int] {
-        var widths = header.map { visibleWidth($0) }
-        for row in body {
+        // Calculate column widths
+        var widths = headers.map(\.count)
+        for row in rows {
             for (colIndex, cell) in row.enumerated() where colIndex < widths.count {
-                widths[colIndex] = max(widths[colIndex], visibleWidth(cell))
+                widths[colIndex] = max(widths[colIndex], cell.count)
             }
         }
-        return widths
+
+        // Print header
+        printFallbackRow(headers, widths: widths, isBold: true)
+
+        // Print separator
+        let separator = widths.map { String(repeating: "-", count: $0 + 2) }.joined(separator: "+")
+        print("+\(separator)+")
+
+        // Print rows
+        for row in rows {
+            printFallbackRow(row, widths: widths, isBold: false)
+        }
     }
 
-    private func printTableSeparator(widths: [Int], left: String, mid: String, cross: String, right: String) {
-        var line = Theme.muted + left + Theme.reset
-        for (colIndex, colWidth) in widths.enumerated() {
-            line += Theme.muted + String(repeating: mid, count: colWidth + 2) + Theme.reset
-            if colIndex < widths.count - 1 {
-                line += Theme.muted + cross + Theme.reset
-            }
+    private func printFallbackRow(_ cells: [String], widths: [Int], isBold: Bool) {
+        var line = "|"
+        for (index, cell) in cells.enumerated() {
+            let width = widths[index]
+            let padded = cell.padding(toLength: width, withPad: " ", startingAt: 0)
+            let content = isBold ? Theme.applyBold(padded) : padded
+            line += " \(content) |"
         }
-        line += Theme.muted + right + Theme.reset
         print(line)
-    }
-
-    private func printTableRow(_ cells: [String], widths: [Int], alignments: [TableAlignment], colCount: Int) {
-        var line = Theme.muted + "│" + Theme.reset
-        for colIndex in 0 ..< colCount {
-            let cell = (colIndex < cells.count) ? cells[colIndex] : ""
-            let colWidth = widths[colIndex]
-            let contentWidth = visibleWidth(cell)
-            let align = (colIndex < alignments.count) ? alignments[colIndex] : .left
-
-            let (leftPad, rightPad) = calculatePadding(
-                totalWidth: colWidth + 2,
-                contentWidth: contentWidth,
-                alignment: align
-            )
-
-            line += String(repeating: " ", count: leftPad) + cell + String(repeating: " ", count: rightPad)
-            if colIndex < colCount - 1 {
-                line += Theme.muted + "│" + Theme.reset
-            }
-        }
-        line += Theme.muted + "│" + Theme.reset
-        print(line)
-    }
-
-    private func calculatePadding(totalWidth: Int, contentWidth: Int, alignment: TableAlignment) -> (Int, Int) {
-        let totalPad = totalWidth - contentWidth
-        switch alignment {
-        case .left:
-            return (1, totalPad - 1)
-        case .right:
-            return (totalPad - 1, 1)
-        case .center:
-            let leftPad = totalPad / 2
-            return (leftPad, totalPad - leftPad)
-        }
-    }
-
-    /// Calculate visible width of string (ignoring ANSI codes)
-    private func visibleWidth(_ text: String) -> Int {
-        var count = 0
-        var insideEscape = false
-        for char in text {
-            if char == "\u{001B}" {
-                insideEscape = true
-            } else if insideEscape, char == "m" {
-                insideEscape = false
-            } else if !insideEscape {
-                count += 1
-            }
-        }
-        return count
     }
 }
 
 // MARK: - Supporting Types
-
-enum TableAlignment {
-    case left
-    case center
-    case right
-}
 
 /// Callout style for blockquotes (e.g., > [!NOTE])
 struct CalloutStyle {
