@@ -154,10 +154,37 @@ final class TerminalUI: @unchecked Sendable {
         let lines = response.split(separator: "\n", omittingEmptySubsequences: false)
         var inCodeBlock = false
         var activeCallout: CalloutStyle?
+        var index = 0
 
-        for line in lines {
+        while index < lines.count {
+            let line = lines[index]
+            defer { index += 1 }
+
             let lineStr = String(line)
             let trimmed = lineStr.trimmingCharacters(in: .whitespaces)
+
+            // Table detection
+            if !inCodeBlock, lineStr.contains("|"), index + 1 < lines.count {
+                let nextLine = String(lines[index + 1]).trimmingCharacters(in: .whitespaces)
+                let allowed = Set("| -:")
+                if !nextLine.isEmpty, nextLine.allSatisfy({ allowed.contains($0) }),
+                   nextLine.contains("|"), nextLine.contains("-")
+                {
+                    var tableLines = [String(line)]
+                    var offset = 1
+                    while index + offset < lines.count {
+                        let l = String(lines[index + offset])
+                        let t = l.trimmingCharacters(in: .whitespaces)
+                        if t.isEmpty || !t.contains("|") { break }
+                        tableLines.append(l)
+                        offset += 1
+                    }
+
+                    renderMarkdownTable(tableLines)
+                    index += offset - 1
+                    continue
+                }
+            }
 
             // Reset callout if line is not a blockquote and not inside a code block
             // Note: We check this early but only clear if we confirm it's not a blockquote below
@@ -290,6 +317,70 @@ final class TerminalUI: @unchecked Sendable {
     func showProviderAttribution(_ providerName: String) {
         print()
         print("\(Theme.muted)— by \(providerName)\(Theme.reset)")
+    }
+
+    private func renderMarkdownTable(_ lines: [String]) {
+        guard lines.count >= 2 else { return }
+
+        func parseRow(_ row: String) -> [String] {
+            var cells = row.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+            if row.trimmingCharacters(in: .whitespaces).hasPrefix("|") { cells.removeFirst() }
+            if row.trimmingCharacters(in: .whitespaces).hasSuffix("|") && !cells.isEmpty { cells.removeLast() }
+            return cells.map { $0.trimmingCharacters(in: .whitespaces) }
+        }
+
+        let headers = parseRow(lines[0])
+        let dataRows = lines.dropFirst(2).map(parseRow)
+        let columnCount = headers.count
+
+        // Calculate widths
+        var colWidths = Array(repeating: 0, count: columnCount)
+
+        // Header widths
+        let styledHeaders = headers.map { TextStyler.apply($0, baseReset: Theme.bold) }
+        for (i, h) in styledHeaders.enumerated() {
+            if i < columnCount { colWidths[i] = max(colWidths[i], h.visibleWidth()) }
+        }
+
+        // Data widths
+        let styledRows = dataRows.map { row in
+            row.map { TextStyler.apply($0) }
+        }
+
+        for row in styledRows {
+            for (i, cell) in row.enumerated() {
+                if i < columnCount { colWidths[i] = max(colWidths[i], cell.visibleWidth()) }
+            }
+        }
+
+        // Render
+        func printSeparator(left: String, mid: String, right: String) {
+            var line = left
+            for (i, w) in colWidths.enumerated() {
+                line += String(repeating: "─", count: w + 2)
+                if i < columnCount - 1 { line += mid }
+            }
+            line += right
+            print("\(Theme.muted)\(line)\(Theme.reset)")
+        }
+
+        func printRow(_ cells: [String]) {
+            var line = "\(Theme.muted)│\(Theme.reset)"
+            for (i, w) in colWidths.enumerated() {
+                let content = i < cells.count ? cells[i] : ""
+                let padding = String(repeating: " ", count: w - content.visibleWidth())
+                line += " \(content)\(padding) \(Theme.muted)│\(Theme.reset)"
+            }
+            print(line)
+        }
+
+        printSeparator(left: "╭", mid: "┬", right: "╮")
+        printRow(styledHeaders)
+        printSeparator(left: "├", mid: "┼", right: "┤")
+        for row in styledRows {
+            printRow(row)
+        }
+        printSeparator(left: "╰", mid: "┴", right: "╯")
     }
 
     // MARK: - Prompts
@@ -455,5 +546,28 @@ final class TerminalUI: @unchecked Sendable {
             self.color = color
             self.title = title
         }
+    }
+}
+
+// MARK: - Helpers
+
+private extension String {
+    static let ansiRegex = try? NSRegularExpression(pattern: "\\u{001B}\\[[0-9;]*[a-zA-Z]", options: [])
+
+    /// Calculate visible width by stripping ANSI codes
+    func visibleWidth() -> Int {
+        // Match ESC (0x1B) followed by bracket and formatting codes
+        guard let regex = String.ansiRegex else {
+            return count
+        }
+        let range = NSRange(location: 0, length: utf16.count)
+        let stripped = regex.stringByReplacingMatches(in: self, options: [], range: range, withTemplate: "")
+        return stripped.count
+    }
+}
+
+private extension Substring {
+    func visibleWidth() -> Int {
+        String(self).visibleWidth()
     }
 }
