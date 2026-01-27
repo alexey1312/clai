@@ -142,162 +142,11 @@ final class TerminalUI: @unchecked Sendable {
         switch format {
         case .plain:
             print()
-            showStyledResponse(response)
+            var renderer = MarkdownRenderer(terminalWidth: terminalWidth)
+            renderer.render(response)
         case .json:
             let json = formatAsJSON(response)
             print(json)
-        }
-    }
-
-    /// Display styled markdown-like response
-    private func showStyledResponse(_ response: String) {
-        let lines = response.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
-        var inCodeBlock = false
-        var activeCallout: CalloutStyle?
-
-        var i = 0
-        while i < lines.count {
-            let lineStr = lines[i]
-            let trimmed = lineStr.trimmingCharacters(in: .whitespaces)
-
-            // Table detection
-            if !inCodeBlock && trimmed.contains("|") && i + 1 < lines.count {
-                let nextLine = lines[i + 1].trimmingCharacters(in: .whitespaces)
-                let isDelimiter = nextLine.contains("|") && nextLine.contains("-") && nextLine.allSatisfy { "|- :".contains($0) }
-
-                if isDelimiter {
-                    activeCallout = nil
-                    var tableLines = [lineStr]
-                    i += 1
-                    tableLines.append(lines[i])
-                    i += 1
-
-                    while i < lines.count {
-                        let nextRow = lines[i]
-                        if nextRow.trimmingCharacters(in: .whitespaces).contains("|") {
-                            tableLines.append(nextRow)
-                            i += 1
-                        } else {
-                            break
-                        }
-                    }
-                    renderTable(tableLines)
-                    continue
-                }
-            }
-
-            // Code blocks (```)
-            if lineStr.hasPrefix("```") {
-                activeCallout = nil
-                if !inCodeBlock {
-                    inCodeBlock = true
-                    let lang = String(lineStr.dropFirst(3)).trimmingCharacters(in: .whitespaces)
-                    let label = lang.isEmpty ? "" : " \(lang) "
-                    let prefix = "╭───"
-                    let w = terminalWidth
-
-                    if label.isEmpty {
-                        let line = String(repeating: "─", count: max(0, w - 1))
-                        print("\(Theme.muted)╭\(line)\(Theme.reset)")
-                    } else {
-                        let remaining = max(0, w - prefix.count - label.count)
-                        let suffix = String(repeating: "─", count: remaining)
-                        print("\(Theme.muted)\(prefix)\(Theme.accent)\(label)\(Theme.muted)\(suffix)\(Theme.reset)")
-                    }
-                } else {
-                    inCodeBlock = false
-                    let line = String(repeating: "─", count: max(0, terminalWidth - 1))
-                    print("\(Theme.muted)╰\(line)\(Theme.reset)")
-                }
-                i += 1
-                continue
-            }
-
-            // Inside code block
-            if inCodeBlock {
-                print("\(Theme.muted)│\(Theme.reset) \(Theme.code)\(lineStr)\(Theme.reset)")
-                i += 1
-                continue
-            }
-
-            // Horizontal Rule (---, ***, ___)
-            if trimmed.count >= 3, Set(trimmed).count == 1,
-               trimmed.hasPrefix("-") || trimmed.hasPrefix("*") || trimmed.hasPrefix("_")
-            {
-                activeCallout = nil
-                let line = String(repeating: "─", count: terminalWidth)
-                print("\(Theme.muted)\(line)\(Theme.reset)")
-                i += 1
-                continue
-            }
-
-            // Headers (# ## ###)
-            if lineStr.hasPrefix("### ") {
-                activeCallout = nil
-                let content = TextStyler.apply(String(lineStr.dropFirst(4)), baseReset: Theme.header3)
-                print("\(Theme.header3)\(content)\(Theme.reset)")
-            } else if lineStr.hasPrefix("## ") {
-                activeCallout = nil
-                let content = TextStyler.apply(String(lineStr.dropFirst(3)), baseReset: Theme.header2)
-                print("\(Theme.header2)\(content)\(Theme.reset)")
-            } else if lineStr.hasPrefix("# ") {
-                activeCallout = nil
-                let content = TextStyler.apply(String(lineStr.dropFirst(2)), baseReset: Theme.header1)
-                print("\(Theme.header1)\(content)\(Theme.reset)")
-            }
-            // Bullet points
-            else if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") {
-                activeCallout = nil
-                let indent = lineStr.prefix(while: { $0 == " " }).count
-                let content = String(trimmed.dropFirst(2))
-                let padding = String(repeating: " ", count: 2 + indent)
-                let level = indent / 2
-                let bullets = ["•", "◦", "▪"]
-                let bullet = bullets[min(level, bullets.count - 1)]
-                print("\(padding)\(Theme.accent)\(bullet)\(Theme.reset) \(TextStyler.apply(content))")
-            }
-            // Blockquotes (> )
-            else if lineStr.hasPrefix("> ") {
-                let content = String(lineStr.dropFirst(2))
-
-                // Check for callout definition (e.g. "> [!NOTE]")
-                if let callout = CalloutStyle(from: content) {
-                    activeCallout = callout
-                    print(
-                        "  \(callout.color)│\(Theme.reset) \(callout.color)\(Theme.bold)\(callout.icon) \(callout.title)\(Theme.reset)"
-                    )
-                    i += 1
-                    continue
-                }
-
-                if let callout = activeCallout {
-                    // Callout content
-                    print("  \(callout.color)│\(Theme.reset) \(TextStyler.apply(content))")
-                } else {
-                    // Standard blockquote
-                    print(
-                        "  \(Theme.muted)│\(Theme.defaultColor) \(Theme.italic)" +
-                            "\(TextStyler.apply(content))\(Theme.italicOff)"
-                    )
-                }
-            }
-            // Numbered lists
-            else if let match = lineStr.range(of: #"^\s*\d+\.\s+"#, options: .regularExpression) {
-                activeCallout = nil
-                let prefix = lineStr[match]
-                let indent = prefix.prefix(while: { $0 == " " }).count
-                let numberPart = prefix.trimmingCharacters(in: .whitespaces)
-                let content = String(lineStr[match.upperBound...])
-                let padding = String(repeating: " ", count: 2 + indent)
-                print("\(padding)\(Theme.accent)\(numberPart)\(Theme.reset) \(TextStyler.apply(content))")
-            }
-            // Regular text
-            else {
-                activeCallout = nil
-                print(TextStyler.apply(lineStr))
-            }
-
-            i += 1
         }
     }
 
@@ -345,37 +194,17 @@ final class TerminalUI: @unchecked Sendable {
         _ question: String,
         options _: T.Type
     ) async -> T? where T.RawValue == String {
-        // Guard against empty options to prevent crash
         guard !T.allCases.isEmpty else { return nil }
 
-        #if os(Linux)
-            print()
-            print(Theme.applyBold(question))
-            print()
-            for (index, option) in T.allCases.enumerated() {
-                print("  \(Theme.muted)[\(Theme.accent)\(index + 1)\(Theme.muted)]\(Theme.reset) \(option.rawValue)")
-            }
-            print()
-            print("Choose \(Theme.accent)[1-\(T.allCases.count)]\(Theme.reset): ", terminator: "")
-            flushStdout()
+        let options = T.allCases.map(\.rawValue)
 
-            guard let line = readLine(),
-                  let index = Int(line),
-                  index >= 1,
-                  index <= T.allCases.count
-            else {
+        #if os(Linux)
+            guard let selected = promptNumberedList(question: question, options: options, defaultIndex: nil) else {
                 return nil
             }
-
-            return Array(T.allCases)[index - 1]
+            return T.allCases.first { $0.rawValue == selected }
         #else
-            // Use Noora's interactive single choice prompt with arrow key navigation
-            let options = T.allCases.map(\.rawValue)
-            let selected = noora.singleChoicePrompt(
-                question: question,
-                options: options
-            )
-            // Find the matching case by raw value
+            let selected = noora.singleChoicePrompt(question: question, options: options)
             return T.allCases.first { $0.rawValue == selected }
         #endif
     }
@@ -399,159 +228,65 @@ final class TerminalUI: @unchecked Sendable {
     func promptProviderSelection(available: [String]) async -> String? {
         guard !available.isEmpty else { return nil }
 
-        print()
-        print(Theme.applyBold("Multiple providers available:"))
-        print()
+        #if os(Linux)
+            return promptNumberedList(
+                question: "Multiple providers available:",
+                options: available,
+                defaultIndex: 0
+            )
+        #else
+            print()
+            let selected = noora.singleChoicePrompt(
+                question: "Multiple providers available:",
+                options: available
+            )
+            return selected
+        #endif
+    }
 
-        for (index, provider) in available.enumerated() {
-            print("  \(Theme.muted)[\(Theme.accent)\(index + 1)\(Theme.muted)]\(Theme.reset) \(provider)")
+    // MARK: - Private
+
+    /// Display a numbered list and prompt for selection (Linux fallback for interactive prompts)
+    private func promptNumberedList(question: String, options: [String], defaultIndex: Int?) -> String? {
+        guard !options.isEmpty else { return nil }
+
+        print()
+        print(Theme.applyBold(question))
+        print()
+        for (index, option) in options.enumerated() {
+            let num = index + 1
+            print("  \(Theme.muted)[\(Theme.accent)\(num)\(Theme.muted)]\(Theme.reset) \(option)")
         }
         print()
-        print("Choose \(Theme.accent)[1-\(available.count)]\(Theme.reset): ", terminator: "")
+        print("Choose \(Theme.accent)[1-\(options.count)]\(Theme.reset): ", terminator: "")
         flushStdout()
 
         guard let line = readLine(),
               let index = Int(line),
               index >= 1,
-              index <= available.count
+              index <= options.count
         else {
-            return available.first
+            if let defaultIndex, defaultIndex >= 0, defaultIndex < options.count {
+                return options[defaultIndex]
+            }
+            return nil
         }
 
-        return available[index - 1]
+        return options[index - 1]
     }
 
-    // MARK: - Private
-
-    private var terminalWidth: Int {
-        var w = winsize()
+    var terminalWidth: Int {
+        var winSize = winsize()
         #if os(Linux)
-            let result = ioctl(FileHandle.standardOutput.fileDescriptor, UInt(TIOCGWINSZ), &w)
+            let result = ioctl(FileHandle.standardOutput.fileDescriptor, UInt(TIOCGWINSZ), &winSize)
         #else
-            let result = ioctl(FileHandle.standardOutput.fileDescriptor, TIOCGWINSZ, &w)
+            let result = ioctl(FileHandle.standardOutput.fileDescriptor, TIOCGWINSZ, &winSize)
         #endif
 
-        if result == 0, w.ws_col > 0 {
-            return Int(w.ws_col)
+        if result == 0, winSize.ws_col > 0 {
+            return Int(winSize.ws_col)
         }
         return 80
-    }
-
-    /// Calculate visible width of string (ignoring ANSI codes)
-    private func visibleWidth(_ text: String) -> Int {
-        var count = 0
-        var insideEscape = false
-        for char in text {
-            if char == "\u{001B}" {
-                insideEscape = true
-            } else if insideEscape && char == "m" {
-                insideEscape = false
-            } else if !insideEscape {
-                count += 1
-            }
-        }
-        return count
-    }
-
-    private func renderTable(_ lines: [String]) {
-        guard lines.count >= 2 else { return }
-
-        // Helper to split row
-        func splitRow(_ line: String) -> [String] {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            var parts = trimmed.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
-            if trimmed.hasPrefix("|") && parts.first?.isEmpty == true { parts.removeFirst() }
-            if trimmed.hasSuffix("|") && parts.last?.isEmpty == true { parts.removeLast() }
-            return parts.map { $0.trimmingCharacters(in: .whitespaces) }
-        }
-
-        let headerRaw = splitRow(lines[0])
-        let delimiterRaw = splitRow(lines[1])
-        let bodyRaw = lines.dropFirst(2).map(splitRow)
-
-        let colCount = headerRaw.count
-        guard colCount > 0 else { return }
-
-        // Determine alignments
-        enum Alignment { case left, center, right }
-        let alignments: [Alignment] = delimiterRaw.map { cell in
-            if cell.hasPrefix(":") && cell.hasSuffix(":") { return .center }
-            if cell.hasSuffix(":") { return .right }
-            return .left
-        }
-
-        // Prepare styled content
-        let headerStyled = headerRaw.map { TextStyler.apply($0) }
-        let bodyStyled = bodyRaw.map { row in
-            let padded = row + Array(repeating: "", count: max(0, colCount - row.count))
-            return padded.prefix(colCount).map { TextStyler.apply($0) }
-        }
-
-        // Calculate widths
-        var widths = headerStyled.map { visibleWidth($0) }
-        for row in bodyStyled {
-            for (i, cell) in row.enumerated() {
-                if i < widths.count {
-                    widths[i] = max(widths[i], visibleWidth(cell))
-                }
-            }
-        }
-
-        // Render
-        func printSeparator(left: String, mid: String, cross: String, right: String) {
-            var line = ""
-            line += Theme.muted + left + Theme.reset
-            for (i, w) in widths.enumerated() {
-                line += Theme.muted + String(repeating: mid, count: w + 2) + Theme.reset
-                if i < widths.count - 1 {
-                    line += Theme.muted + cross + Theme.reset
-                }
-            }
-            line += Theme.muted + right + Theme.reset
-            print(line)
-        }
-
-        func printRow(_ cells: [String]) {
-            var line = ""
-            line += Theme.muted + "│" + Theme.reset
-            for i in 0 ..< colCount {
-                let cell = (i < cells.count) ? cells[i] : ""
-                let w = widths[i]
-                let contentW = visibleWidth(cell)
-                let align = (i < alignments.count) ? alignments[i] : .left
-
-                let totalPad = w + 2 - contentW
-                let leftP: Int
-                let rightP: Int
-
-                switch align {
-                case .left:
-                    leftP = 1
-                    rightP = totalPad - 1
-                case .right:
-                    rightP = 1
-                    leftP = totalPad - 1
-                case .center:
-                    leftP = totalPad / 2
-                    rightP = totalPad - leftP
-                }
-
-                line += String(repeating: " ", count: leftP) + cell + String(repeating: " ", count: rightP)
-                if i < colCount - 1 {
-                    line += Theme.muted + "│" + Theme.reset
-                }
-            }
-            line += Theme.muted + "│" + Theme.reset
-            print(line)
-        }
-
-        printSeparator(left: "╭", mid: "─", cross: "┬", right: "╮")
-        printRow(headerStyled)
-        printSeparator(left: "├", mid: "─", cross: "┼", right: "┤")
-        for row in bodyStyled {
-            printRow(row)
-        }
-        printSeparator(left: "╰", mid: "─", cross: "┴", right: "╯")
     }
 
     private func formatAsJSON(_ response: String) -> String {
@@ -567,38 +302,5 @@ final class TerminalUI: @unchecked Sendable {
         }
 
         return json
-    }
-
-    private struct CalloutStyle {
-        let icon: String
-        let color: String
-        let title: String
-
-        init?(from text: String) {
-            guard text.hasPrefix("[!") else { return nil }
-            guard let closingBracket = text.firstIndex(of: "]") else { return nil }
-
-            // Extract type between [ and ]
-            let typeRange = text.index(after: text.startIndex) ..< closingBracket
-            let type = String(text[typeRange]).uppercased() // e.g., "!WARNING"
-
-            guard type.hasPrefix("!") else { return nil }
-            let key = String(type.dropFirst()) // "WARNING"
-
-            switch key {
-            case "NOTE": self.init(icon: "ℹ", color: Theme.blue, title: "NOTE")
-            case "TIP": self.init(icon: "💡", color: Theme.success, title: "TIP")
-            case "IMPORTANT": self.init(icon: "🔥", color: Theme.magenta, title: "IMPORTANT")
-            case "WARNING": self.init(icon: "⚠", color: Theme.warning, title: "WARNING")
-            case "CAUTION": self.init(icon: "⚡", color: Theme.error, title: "CAUTION")
-            default: return nil
-            }
-        }
-
-        init(icon: String, color: String, title: String) {
-            self.icon = icon
-            self.color = color
-            self.title = title
-        }
     }
 }

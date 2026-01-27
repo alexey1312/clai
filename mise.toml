@@ -54,8 +54,16 @@ run = "swiftformat Sources --lint"
 run = "git config core.hooksPath .githooks 2>/dev/null || true"
 
 [tasks.setup]
-description = "Show git hooks status"
-run = "git config --get core.hooksPath || echo 'hooks not configured'"
+description = "Configure git hooks"
+run = """
+current=$(git config --get core.hooksPath 2>/dev/null || true)
+if [ "$current" = ".githooks" ]; then
+  echo "✓ Git hooks already configured"
+else
+  git config core.hooksPath .githooks
+  echo "✓ Git hooks configured → .githooks"
+fi
+"""
 
 
 [tasks.clean]

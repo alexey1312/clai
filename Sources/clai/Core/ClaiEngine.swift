@@ -204,12 +204,24 @@ final class ClaiEngine: Sendable {
             throw ClaiError.emptyResponse(provider.name)
         }
 
-        // Cache the response (if not disabled)
-        if let cacheKey, let cache {
-            try? cache.set(key: cacheKey, response: response, provider: provider.name)
-        }
+        return (response, wasStreamed)
+    }
 
-        return GenerationResult(content: response, wasStreamed: wasStreamed, providerName: provider.name)
+    private func generateWithStreaming(provider: LLMProvider, prompt: String) async throws -> String {
+        let streamFilter = ThinkingTagStreamFilter()
+        let response = try await provider.generateStreaming(prompt: prompt) { chunk in
+            let filtered = streamFilter.process(chunk)
+            if !filtered.isEmpty {
+                self.terminal.appendStreamChunk(filtered)
+            }
+        }
+        // Flush any remaining buffered content
+        let remaining = streamFilter.flush()
+        if !remaining.isEmpty {
+            terminal.appendStreamChunk(remaining)
+        }
+        terminal.endStream()
+        return response
     }
 
     private func executeGeneration(

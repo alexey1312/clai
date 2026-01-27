@@ -39,8 +39,8 @@ final class ResponseCache: @unchecked Sendable {
     }
 
     /// Create the responses table if it doesn't exist
-    private func createTable(_ db: Connection) throws {
-        try db.run(
+    private func createTable(_ connection: Connection) throws {
+        try connection.run(
             responses.create(ifNotExists: true) { table in
                 table.column(id, primaryKey: .autoincrement)
                 table.column(cacheKey, unique: true)
@@ -50,10 +50,10 @@ final class ResponseCache: @unchecked Sendable {
             })
 
         // Create index for faster lookups
-        try db.run(responses.createIndex(cacheKey, ifNotExists: true))
+        try connection.run(responses.createIndex(cacheKey, ifNotExists: true))
 
         // Create index on createdAt to speed up expiration cleanup
-        try db.run(responses.createIndex(createdAt, ifNotExists: true))
+        try connection.run(responses.createIndex(createdAt, ifNotExists: true))
     }
 
     /// Generate a cache key from command and context
@@ -69,15 +69,15 @@ final class ResponseCache: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
 
-        let db: Connection
+        let connection: Connection
         if let existing = _database {
-            db = existing
+            connection = existing
         } else {
-            db = try _initDatabase()
-            _database = db
+            connection = try _initDatabase()
+            _database = connection
         }
 
-        return try block(db)
+        return try block(connection)
     }
 
     private func _initDatabase() throws -> Connection {
@@ -86,24 +86,24 @@ final class ResponseCache: @unchecked Sendable {
         try FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
 
         let dbPath = cacheDir.appendingPathComponent("clai_cache.sqlite").path
-        let db = try Connection(dbPath)
+        let connection = try Connection(dbPath)
 
         // Enable WAL mode for better concurrency and write performance
-        try db.run("PRAGMA journal_mode = WAL;")
+        try connection.run("PRAGMA journal_mode = WAL;")
 
         // Set synchronous to NORMAL for better performance with acceptable durability for cache
-        try db.run("PRAGMA synchronous = NORMAL;")
+        try connection.run("PRAGMA synchronous = NORMAL;")
 
-        try createTable(db)
-        return db
+        try createTable(connection)
+        return connection
     }
 
     /// Look up a cached response
     func get(key: String) throws -> CachedResponse? {
-        try withConnection { db in
+        try withConnection { connection in
             let query = responses.filter(cacheKey == key)
 
-            guard let row = try db.pluck(query) else {
+            guard let row = try connection.pluck(query) else {
                 return nil
             }
 
@@ -112,13 +112,13 @@ final class ResponseCache: @unchecked Sendable {
                 byAdding: .day, value: ttlDays, to: responseCreatedAt
             ) else {
                 // Date calculation failed - treat as expired
-                try delete(key: key, db: db)
+                try delete(key: key, connection: connection)
                 return nil
             }
 
             // Check if expired
             if Date() > expirationDate {
-                try delete(key: key, db: db)
+                try delete(key: key, connection: connection)
                 return nil
             }
 
@@ -132,7 +132,7 @@ final class ResponseCache: @unchecked Sendable {
 
     /// Store a response in the cache
     func set(key: String, response responseText: String, provider providerName: String) throws {
-        try withConnection { db in
+        try withConnection { connection in
             let insert = responses.insert(
                 or: .replace,
                 cacheKey <- key,
@@ -140,49 +140,49 @@ final class ResponseCache: @unchecked Sendable {
                 provider <- providerName,
                 createdAt <- Date()
             )
-            try db.run(insert)
+            try connection.run(insert)
         }
     }
 
     /// Delete a cached response
     func delete(key: String) throws {
-        try withConnection { db in
-            try delete(key: key, db: db)
+        try withConnection { connection in
+            try delete(key: key, connection: connection)
         }
     }
 
-    // Internal helper that takes db (caller must hold lock)
-    private func delete(key: String, db: Connection) throws {
+    // Internal helper that takes connection (caller must hold lock)
+    private func delete(key: String, connection: Connection) throws {
         let query = responses.filter(cacheKey == key)
-        try db.run(query.delete())
+        try connection.run(query.delete())
     }
 
     /// Clean up expired entries
     func cleanupExpired() throws {
-        try withConnection { db in
+        try withConnection { connection in
             guard let expirationDate = Calendar.current.date(byAdding: .day, value: -ttlDays, to: Date()) else {
                 return // Cannot calculate expiration date, skip cleanup
             }
             let expired = responses.filter(createdAt < expirationDate)
-            try db.run(expired.delete())
+            try connection.run(expired.delete())
         }
     }
 
     /// Clear all cached responses
     func clearAll() throws {
-        try withConnection { db in
-            try db.run(responses.delete())
+        try withConnection { connection in
+            try connection.run(responses.delete())
         }
     }
 
     /// Get cache statistics
     func stats() throws -> CacheStats {
-        try withConnection { db in
-            let count = try db.scalar(responses.count)
-            let dbPath = Self.cacheDirectory.appendingPathComponent("clai_cache.sqlite")
+        try withConnection { connection in
+            let count = try connection.scalar(responses.count)
+            let databasePath = Self.cacheDirectory.appendingPathComponent("clai_cache.sqlite")
 
             var sizeBytes: Int64 = 0
-            if let attrs = try? FileManager.default.attributesOfItem(atPath: dbPath.path) {
+            if let attrs = try? FileManager.default.attributesOfItem(atPath: databasePath.path) {
                 sizeBytes = attrs[.size] as? Int64 ?? 0
             }
 

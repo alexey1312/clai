@@ -8,25 +8,25 @@ struct UITestCommand: AsyncParsableCommand {
     )
 
     func run() async throws {
-        let ui = TerminalUI(verbose: false)
+        let terminal = TerminalUI(verbose: false)
         let markdown = """
-# Table Test
+        # Table Test
 
-Here is a table:
+        Here is a table:
 
-| Name | Role | Description |
-| :--- | :---: | ---: |
-| **Alice** | Developer | _Frontend_ |
-| Bob | `Manager` | Backend |
-| Charlie | QA | Fullstack |
+        | Name | Role | Description |
+        | :--- | :---: | ---: |
+        | **Alice** | Developer | _Frontend_ |
+        | Bob | `Manager` | Backend |
+        | Charlie | QA | Fullstack |
 
-End of table.
+        End of table.
 
-## Another Table (Plain)
-| A | B |
-|---|---|
-| 1 | 2 |
-"""
-        ui.showResponse(markdown, format: .plain)
+        ## Another Table (Plain)
+        | A | B |
+        |---|---|
+        | 1 | 2 |
+        """
+        terminal.showResponse(markdown, format: .plain)
     }
 }

@@ -1,5 +1,5 @@
 {
-  "originHash" : "e6aeae0320f14099b931dce6507d0813040bf313470695e2084c5949ba2259ec",
+  "originHash" : "dcaabf9b518e75378c5fbf95f7046bad541c2e2ee7915e2ccc06d104a392124c",
   "pins" : [
     {
       "identity" : "anylanguagemodel",
@@ -29,15 +29,6 @@
       }
     },
     {
-      "identity" : "llama.swift",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/mattt/llama.swift",
-      "state" : {
-        "revision" : "5cb4975ddd47edf3afabd98ab3fd19ef501679bf",
-        "version" : "2.7821.0"
-      }
-    },
-    {
       "identity" : "mlx-swift",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ml-explore/mlx-swift",
@@ -56,12 +47,39 @@
       }
     },
     {
+      "identity" : "noora",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/tuist/Noora",
+      "state" : {
+        "revision" : "bf2222995703f2a2500a2bbb8153fdb5d3a851ed",
+        "version" : "0.54.0"
+      }
+    },
+    {
       "identity" : "partialjsondecoder",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mattt/PartialJSONDecoder",
       "state" : {
         "revision" : "e4d389e6bcc6771bb988d1a8a17695d8bfa97172",
         "version" : "1.0.0"
+      }
+    },
+    {
+      "identity" : "path",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/tuist/path",
+      "state" : {
+        "revision" : "7c74ac435e03a927c3a73134c48b61e60221abcb",
+        "version" : "0.3.8"
+      }
+    },
+    {
+      "identity" : "rainbow",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/onevcat/Rainbow",
+      "state" : {
+        "revision" : "cdf146ae671b2624917648b61c908d1244b98ca1",
+        "version" : "4.2.1"
       }
     },
     {
@@ -116,6 +134,15 @@
       "state" : {
         "revision" : "ba2364165002abe8f4f3992d74a7b547c635638e",
         "version" : "2.2.1"
+      }
+    },
+    {
+      "identity" : "swift-log",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-log",
+      "state" : {
+        "revision" : "2778fd4e5a12a8aaa30a3ee8285f4ce54c5f3181",
+        "version" : "1.9.1"
       }
     },
     {
