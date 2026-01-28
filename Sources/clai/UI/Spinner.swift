@@ -31,8 +31,9 @@ final class Spinner: Sendable {
         }
     }
 
-    func stop() {
+    func stop() async {
         task.cancel()
+        _ = await task.result
     }
 }
 
