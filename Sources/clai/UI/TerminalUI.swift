@@ -51,8 +51,19 @@ final class TerminalUI: @unchecked Sendable {
         }
 
         let spinner = Spinner(message: message)
-        defer { spinner.stop() }
-        return try await operation()
+
+        do {
+            let result = try await operation()
+            await spinner.stop()
+            print("\r\(Theme.success)✔\(Theme.reset) \(message)")
+            flushStdout()
+            return result
+        } catch {
+            await spinner.stop()
+            print("\r\(Theme.error)✖\(Theme.reset) \(message)")
+            flushStdout()
+            throw error
+        }
     }
 
     func showProgress(_ message: String) {
