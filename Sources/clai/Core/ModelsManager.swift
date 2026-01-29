@@ -229,7 +229,8 @@ final class ModelsManager {
         async let mlxModelsFuture = getAllMLXModels()
         async let ollamaModelsFuture = getOllamaModels()
 
-        let mlxModels = (await mlxModelsFuture).filter(\.isDownloaded)
+        let resolvedMlxModels = await mlxModelsFuture
+        let mlxModels = resolvedMlxModels.filter(\.isDownloaded)
         let ollamaModels = await ollamaModelsFuture
 
         var options: [(String, ModelSelection)] = []
