@@ -8,11 +8,11 @@ disable_tools = ["python"]
 HK_MISE = "true"
 
 [tools]
-hk = "1.29.0"
+hk = "1.32.0"
 swiftformat = "0.58.7"
-swiftlint = "0.63.1"
+swiftlint = "0.63.2"
 git-cliff = "2.11.0"
-xcsift = "1.0.22"
+xcsift = "1.1.0"
 pkl = "0.30.2"
 swift = "latest"
 
