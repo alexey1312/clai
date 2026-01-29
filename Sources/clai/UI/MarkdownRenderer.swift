@@ -205,30 +205,33 @@ struct MarkdownRenderer {
     private func renderTable(_ lines: [String]) {
         guard lines.count >= 2 else { return }
 
-        let (headers, rows) = parseMarkdownTable(lines)
+        // Use box renderer if no external handler is provided
+        let keepMarkdown = tableHandler == nil
+        let (headers, rows) = parseMarkdownTable(lines, keepMarkdown: keepMarkdown)
+
         guard !headers.isEmpty else { return }
 
         if let tableHandler {
             // Delegate to external renderer (e.g., Noora)
             tableHandler(headers, rows)
         } else {
-            // Fallback when no handler provided
-            renderTableFallback(headers: headers, rows: rows)
+            // Internal Box Drawing renderer
+            renderBoxedTable(headers: headers, rows: rows)
         }
     }
 
-    /// Parse markdown table into structured data (headers and rows as plain text)
-    private func parseMarkdownTable(_ lines: [String]) -> (headers: [String], rows: [[String]]) {
+    /// Parse markdown table into structured data
+    private func parseMarkdownTable(_ lines: [String], keepMarkdown: Bool) -> (headers: [String], rows: [[String]]) {
         let headerRaw = splitRow(lines[0])
         let bodyRaw = lines.dropFirst(2).map(splitRow)
 
-        // Strip markdown formatting, keep plain text
-        let headers = headerRaw.map { stripMarkdown($0) }
+        // Strip markdown formatting unless requested to keep
+        let headers = headerRaw.map { keepMarkdown ? $0 : stripMarkdown($0) }
         let colCount = headers.count
 
         let rows = bodyRaw.map { row -> [String] in
             let padded = row + Array(repeating: "", count: max(0, colCount - row.count))
-            return Array(padded.prefix(colCount).map { stripMarkdown($0) })
+            return Array(padded.prefix(colCount).map { keepMarkdown ? $0 : stripMarkdown($0) })
         }
 
         return (headers, rows)
@@ -255,39 +258,60 @@ struct MarkdownRenderer {
         return result
     }
 
-    /// Simple ASCII table fallback when no handler is provided
-    private func renderTableFallback(headers: [String], rows: [[String]]) {
+    /// Render table using box drawing characters and Theme colors
+    private func renderBoxedTable(headers: [String], rows: [[String]]) {
         let colCount = headers.count
         guard colCount > 0 else { return }
 
-        // Calculate column widths
-        var widths = headers.map(\.count)
-        for row in rows {
+        // Apply styles and calculate visible widths
+        let styledHeaders = headers.map { header -> String in
+            let styled = TextStyler.apply(header, baseReset: Theme.bold)
+            return Theme.applyBold(styled)
+        }
+
+        let styledRows = rows.map { row in
+            row.map { TextStyler.apply($0) }
+        }
+
+        var widths = styledHeaders.map { Theme.visibleWidth($0) }
+        for row in styledRows {
             for (colIndex, cell) in row.enumerated() where colIndex < widths.count {
-                widths[colIndex] = max(widths[colIndex], cell.count)
+                widths[colIndex] = max(widths[colIndex], Theme.visibleWidth(cell))
             }
         }
 
-        // Print header
-        printFallbackRow(headers, widths: widths, isBold: true)
+        // Borders
+        let border = Theme.muted
+        let reset = Theme.reset
 
-        // Print separator
-        let separator = widths.map { String(repeating: "-", count: $0 + 2) }.joined(separator: "+")
-        print("+\(separator)+")
+        // Top border: ╭───┬───╮
+        let topBorder = widths.map { String(repeating: "─", count: $0 + 2) }.joined(separator: "┬")
+        print("\(border)╭\(topBorder)╮\(reset)")
 
-        // Print rows
-        for row in rows {
-            printFallbackRow(row, widths: widths, isBold: false)
+        // Header row
+        printBoxedRow(styledHeaders, widths: widths, border: border, reset: reset)
+
+        // Middle separator: ├───┼───┤
+        let midBorder = widths.map { String(repeating: "─", count: $0 + 2) }.joined(separator: "┼")
+        print("\(border)├\(midBorder)┤\(reset)")
+
+        // Rows
+        for row in styledRows {
+            printBoxedRow(row, widths: widths, border: border, reset: reset)
         }
+
+        // Bottom border: ╰───┴───╯
+        let bottomBorder = widths.map { String(repeating: "─", count: $0 + 2) }.joined(separator: "┴")
+        print("\(border)╰\(bottomBorder)╯\(reset)")
     }
 
-    private func printFallbackRow(_ cells: [String], widths: [Int], isBold: Bool) {
-        var line = "|"
+    private func printBoxedRow(_ cells: [String], widths: [Int], border: String, reset: String) {
+        var line = "\(border)│\(reset)"
         for (index, cell) in cells.enumerated() {
             let width = widths[index]
-            let padded = cell.padding(toLength: width, withPad: " ", startingAt: 0)
-            let content = isBold ? Theme.applyBold(padded) : padded
-            line += " \(content) |"
+            let visibleLen = Theme.visibleWidth(cell)
+            let padding = String(repeating: " ", count: width - visibleLen)
+            line += " \(cell)\(padding) \(border)│\(reset)"
         }
         print(line)
     }
