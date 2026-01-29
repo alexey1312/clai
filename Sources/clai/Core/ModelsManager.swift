@@ -119,7 +119,6 @@ final class ModelsManager {
 
             terminal.showSuccess("Model downloaded successfully!")
 
-            // Update config to mark consent
             var config = Config.load()
             config.mlx.downloadConsented = true
             try config.save()
