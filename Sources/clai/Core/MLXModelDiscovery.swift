@@ -52,16 +52,19 @@ enum MLXModelDiscovery {
     }
 
     /// Discover downloaded MLX models from all cache locations
-    static func discoverDownloaded() -> [MLXModelInfo] {
+    static func discoverDownloaded() async -> [MLXModelInfo] {
+        async let libraryModels = discoverFromLibraryCache()
+        async let hfModels = discoverFromHuggingFaceCache()
+
         var allModels: [MLXModelInfo] = []
 
         // Search Library cache first (~/Library/Caches/models/mlx-community/)
         // This is where AnyLanguageModel downloads models, so prefer this location
-        allModels.append(contentsOf: discoverFromLibraryCache())
+        allModels.append(contentsOf: await libraryModels)
 
         // Search HuggingFace cache (~/.cache/huggingface/hub/)
         // Legacy location, kept for backward compatibility
-        allModels.append(contentsOf: discoverFromHuggingFaceCache())
+        allModels.append(contentsOf: await hfModels)
 
         // Deduplicate by modelId (first occurrence wins, which is Library cache)
         var seen = Set<String>()
@@ -76,7 +79,7 @@ enum MLXModelDiscovery {
     }
 
     /// Discover models from HuggingFace cache (~/.cache/huggingface/hub/)
-    private static func discoverFromHuggingFaceCache() -> [MLXModelInfo] {
+    private static func discoverFromHuggingFaceCache() async -> [MLXModelInfo] {
         let fileManager = FileManager.default
         let cacheURL = huggingFaceCacheURL
 
@@ -91,43 +94,56 @@ enum MLXModelDiscovery {
                 options: [.skipsHiddenFiles]
             )
 
-            return contents.compactMap { url -> MLXModelInfo? in
-                let dirName = url.lastPathComponent
+            return await withTaskGroup(of: MLXModelInfo?.self) { group in
+                for url in contents {
+                    group.addTask {
+                        let fileManager = FileManager.default
+                        let dirName = url.lastPathComponent
 
-                // Only look for mlx-community models.
-                guard dirName.hasPrefix("models--mlx-community--") else {
-                    return nil
+                        // Only look for mlx-community models.
+                        guard dirName.hasPrefix("models--mlx-community--") else {
+                            return nil
+                        }
+
+                        // Parse model ID from directory name
+                        guard let modelId = parseModelId(from: dirName) else {
+                            return nil
+                        }
+
+                        // Check if model has actual content (snapshots directory)
+                        let snapshotsURL = url.appendingPathComponent("snapshots")
+                        guard fileManager.fileExists(atPath: snapshotsURL.path) else {
+                            return nil
+                        }
+
+                        // Calculate directory size
+                        let sizeBytes = directorySize(at: url)
+                        let sizeFormatted = ByteFormatter.format(sizeBytes)
+
+                        // Create display name from model ID
+                        let displayName = modelId
+                            .replacingOccurrences(of: "mlx-community/", with: "")
+
+                        return MLXModelInfo(
+                            modelId: modelId,
+                            displayName: displayName,
+                            sizeBytes: sizeBytes,
+                            sizeFormatted: sizeFormatted,
+                            isDownloaded: true,
+                            isDefault: false,
+                            cachePath: url,
+                            description: nil
+                        )
+                    }
                 }
 
-                // Parse model ID from directory name
-                guard let modelId = parseModelId(from: dirName) else {
-                    return nil
+                var results: [MLXModelInfo] = []
+                for await result in group {
+                    if let result {
+                        results.append(result)
+                    }
                 }
-
-                // Check if model has actual content (snapshots directory)
-                let snapshotsURL = url.appendingPathComponent("snapshots")
-                guard fileManager.fileExists(atPath: snapshotsURL.path) else {
-                    return nil
-                }
-
-                // Calculate directory size
-                let sizeBytes = directorySize(at: url)
-                let sizeFormatted = ByteFormatter.format(sizeBytes)
-
-                // Create display name from model ID
-                let displayName = modelId
-                    .replacingOccurrences(of: "mlx-community/", with: "")
-
-                return MLXModelInfo(
-                    modelId: modelId,
-                    displayName: displayName,
-                    sizeBytes: sizeBytes,
-                    sizeFormatted: sizeFormatted,
-                    isDownloaded: true,
-                    isDefault: false,
-                    cachePath: url,
-                    description: nil
-                )
+                return results
             }
         } catch {
             return []
@@ -135,7 +151,7 @@ enum MLXModelDiscovery {
     }
 
     /// Discover models from Library cache (~/Library/Caches/models/mlx-community/)
-    private static func discoverFromLibraryCache() -> [MLXModelInfo] {
+    private static func discoverFromLibraryCache() async -> [MLXModelInfo] {
         let fileManager = FileManager.default
         let cacheURL = libraryCacheURL
 
@@ -150,37 +166,50 @@ enum MLXModelDiscovery {
                 options: [.skipsHiddenFiles]
             )
 
-            return contents.compactMap { url -> MLXModelInfo? in
-                let dirName = url.lastPathComponent
+            return await withTaskGroup(of: MLXModelInfo?.self) { group in
+                for url in contents {
+                    group.addTask {
+                        let fileManager = FileManager.default
+                        let dirName = url.lastPathComponent
 
-                // Skip hidden directories
-                guard !dirName.hasPrefix(".") else {
-                    return nil
+                        // Skip hidden directories
+                        guard !dirName.hasPrefix(".") else {
+                            return nil
+                        }
+
+                        // Check if this looks like a model directory (has config.json or model files)
+                        let configURL = url.appendingPathComponent("config.json")
+                        guard fileManager.fileExists(atPath: configURL.path) else {
+                            return nil
+                        }
+
+                        // Model ID is mlx-community/<dirname>
+                        let modelId = "mlx-community/\(dirName)"
+
+                        // Calculate directory size
+                        let sizeBytes = directorySize(at: url)
+                        let sizeFormatted = ByteFormatter.format(sizeBytes)
+
+                        return MLXModelInfo(
+                            modelId: modelId,
+                            displayName: dirName,
+                            sizeBytes: sizeBytes,
+                            sizeFormatted: sizeFormatted,
+                            isDownloaded: true,
+                            isDefault: false,
+                            cachePath: url,
+                            description: nil
+                        )
+                    }
                 }
 
-                // Check if this looks like a model directory (has config.json or model files)
-                let configURL = url.appendingPathComponent("config.json")
-                guard fileManager.fileExists(atPath: configURL.path) else {
-                    return nil
+                var results: [MLXModelInfo] = []
+                for await result in group {
+                    if let result {
+                        results.append(result)
+                    }
                 }
-
-                // Model ID is mlx-community/<dirname>
-                let modelId = "mlx-community/\(dirName)"
-
-                // Calculate directory size
-                let sizeBytes = directorySize(at: url)
-                let sizeFormatted = ByteFormatter.format(sizeBytes)
-
-                return MLXModelInfo(
-                    modelId: modelId,
-                    displayName: dirName,
-                    sizeBytes: sizeBytes,
-                    sizeFormatted: sizeFormatted,
-                    isDownloaded: true,
-                    isDefault: false,
-                    cachePath: url,
-                    description: nil
-                )
+                return results
             }
         } catch {
             return []
