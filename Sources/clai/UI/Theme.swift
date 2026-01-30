@@ -57,4 +57,16 @@ enum Theme {
     static func apply(_ text: String, color: String) -> String {
         "\(color)\(text)\(defaultColor)"
     }
+
+    // MARK: - Utilities
+
+    /// Strip ANSI codes from text
+    static func stripAnsi(_ text: String) -> String {
+        text.replacingOccurrences(of: #"\u001B\[[0-9;]*[mK]"#, with: "", options: .regularExpression)
+    }
+
+    /// Calculate visible width of text (ignoring ANSI codes)
+    static func visibleWidth(_ text: String) -> Int {
+        stripAnsi(text).count
+    }
 }
