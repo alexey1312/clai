@@ -45,7 +45,7 @@ final class ModelsManager {
     /// Get all MLX models (downloaded + available from curated list)
     func getAllMLXModels() async -> [MLXModelInfo] {
         let config = Config.load()
-        let downloaded = MLXModelDiscovery.discoverDownloaded()
+        let downloaded = await MLXModelDiscovery.discoverDownloaded()
         return CuratedModels.getModelsWithStatus(
             downloaded: downloaded,
             defaultModelId: config.mlx.modelId
@@ -55,7 +55,7 @@ final class ModelsManager {
     /// Get only downloaded MLX models
     func getDownloadedMLXModels() async -> [MLXModelInfo] {
         let config = Config.load()
-        var models = MLXModelDiscovery.discoverDownloaded()
+        var models = await MLXModelDiscovery.discoverDownloaded()
 
         // Mark default
         for index in models.indices {
