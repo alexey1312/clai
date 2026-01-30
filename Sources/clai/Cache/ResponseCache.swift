@@ -47,7 +47,8 @@ final class ResponseCache: @unchecked Sendable {
                 table.column(response)
                 table.column(provider)
                 table.column(createdAt)
-            })
+            }
+        )
 
         // Create index for faster lookups
         try connection.run(responses.createIndex(cacheKey, ifNotExists: true))

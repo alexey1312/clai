@@ -60,11 +60,13 @@ enum MLXModelDiscovery {
 
         // Search Library cache first (~/Library/Caches/models/mlx-community/)
         // This is where AnyLanguageModel downloads models, so prefer this location
-        allModels.append(contentsOf: await libraryModels)
+        let libModels = await libraryModels
+        allModels.append(contentsOf: libModels)
 
         // Search HuggingFace cache (~/.cache/huggingface/hub/)
         // Legacy location, kept for backward compatibility
-        allModels.append(contentsOf: await hfModels)
+        let huggingFaceModels = await hfModels
+        allModels.append(contentsOf: huggingFaceModels)
 
         // Deduplicate by modelId (first occurrence wins, which is Library cache)
         var seen = Set<String>()
