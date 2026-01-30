@@ -50,10 +50,16 @@ final class ResponseCache: @unchecked Sendable {
             })
 
         // Create index for faster lookups
-        try connection.run(responses.createIndex(cacheKey, ifNotExists: true))
+        try connection.run(responses.createIndex(
+            cacheKey,
+            ifNotExists: true
+        ))
 
         // Create index on createdAt to speed up expiration cleanup
-        try connection.run(responses.createIndex(createdAt, ifNotExists: true))
+        try connection.run(responses.createIndex(
+            createdAt,
+            ifNotExists: true
+        ))
     }
 
     /// Generate a cache key from command and context
