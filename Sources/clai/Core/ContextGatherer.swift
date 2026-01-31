@@ -30,12 +30,17 @@ final class ContextGatherer: Sendable {
     func getHelpOutput(for command: String) async throws -> String {
         let baseCommand = command.split(separator: " ").first.map(String.init) ?? command
 
-        // Try --help first, then -h
-        if let output = try? await runCommand("\(baseCommand) --help") {
-            return output
-        }
+        // Run both checks concurrently to reduce latency
+        async let helpFuture = runCommand("\(baseCommand) --help")
+        async let hFuture = runCommand("\(baseCommand) -h")
 
-        return try await runCommand("\(baseCommand) -h")
+        do {
+            // Prefer --help output
+            return try await helpFuture
+        } catch {
+            // Fallback to -h if --help fails
+            return try await hFuture
+        }
     }
 
     /// Get man page content for a command
@@ -59,28 +64,32 @@ final class ContextGatherer: Sendable {
         process.standardOutput = pipe
         process.standardError = pipe
 
-        return try await withCheckedThrowingContinuation { continuation in
-            process.terminationHandler = { process in
-                // Read data synchronously since process has terminated
-                let data = (try? pipe.fileHandleForReading.readToEnd()) ?? Data()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                process.terminationHandler = { process in
+                    // Read data synchronously since process has terminated
+                    let data = (try? pipe.fileHandleForReading.readToEnd()) ?? Data()
 
-                guard let output = String(data: data, encoding: .utf8) else {
-                    continuation.resume(throwing: ClaiError.commandFailed(command))
-                    return
+                    guard let output = String(data: data, encoding: .utf8) else {
+                        continuation.resume(throwing: ClaiError.commandFailed(command))
+                        return
+                    }
+
+                    if process.terminationStatus != 0 {
+                        continuation.resume(throwing: ClaiError.commandFailed(command))
+                    } else {
+                        continuation.resume(returning: output.trimmingCharacters(in: .whitespacesAndNewlines))
+                    }
                 }
 
-                if process.terminationStatus != 0 {
-                    continuation.resume(throwing: ClaiError.commandFailed(command))
-                } else {
-                    continuation.resume(returning: output.trimmingCharacters(in: .whitespacesAndNewlines))
+                do {
+                    try process.run()
+                } catch {
+                    continuation.resume(throwing: error)
                 }
             }
-
-            do {
-                try process.run()
-            } catch {
-                continuation.resume(throwing: error)
-            }
+        } onCancel: {
+            process.terminate()
         }
     }
 }
