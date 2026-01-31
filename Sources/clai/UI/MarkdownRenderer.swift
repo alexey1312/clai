@@ -232,7 +232,7 @@ struct MarkdownRenderer {
     private func parseAlignments(_ line: String, colCount: Int) -> [Alignment] {
         let parts = splitRow(line)
         var alignments = parts.map { part -> Alignment in
-            if part.hasPrefix(":") && part.hasSuffix(":") { return .center }
+            if part.hasPrefix(":"), part.hasSuffix(":") { return .center }
             if part.hasSuffix(":") { return .right }
             return .left
         }
