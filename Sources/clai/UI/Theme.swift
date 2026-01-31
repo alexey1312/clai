@@ -1,3 +1,5 @@
+import Foundation
+
 enum Theme {
     // MARK: - ANSI Base Codes
 
@@ -56,5 +58,20 @@ enum Theme {
     /// Apply color
     static func apply(_ text: String, color: String) -> String {
         "\(color)\(text)\(defaultColor)"
+    }
+
+    // MARK: - Utilities
+
+    private static let ansiRegex = try! NSRegularExpression(pattern: "\\x1B\\[[0-9;]*[a-zA-Z]", options: [])
+
+    /// Strip ANSI codes from text
+    static func stripAnsi(_ text: String) -> String {
+        let range = NSRange(text.startIndex..., in: text)
+        return ansiRegex.stringByReplacingMatches(in: text, options: [], range: range, withTemplate: "")
+    }
+
+    /// Calculate visible width of text (ignoring ANSI codes)
+    static func visibleWidth(_ text: String) -> Int {
+        stripAnsi(text).count
     }
 }

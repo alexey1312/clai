@@ -135,9 +135,7 @@ final class TerminalUI: @unchecked Sendable {
         switch format {
         case .plain:
             print()
-            var renderer = MarkdownRenderer(terminalWidth: terminalWidth) { [noora] headers, rows in
-                noora.table(headers: headers, rows: rows)
-            }
+            var renderer = MarkdownRenderer(terminalWidth: terminalWidth)
             renderer.render(response)
         case .json:
             print(formatAsJSON(response))
