@@ -9,6 +9,10 @@ enum MLXAvailabilityChecker {
     /// Check if MLX Metal is functional
     /// This prevents confusing error messages when MLX libraries aren't bundled
     static func isMLXFunctional() -> Bool {
+        _isFunctional
+    }
+
+    private static let _isFunctional: Bool = {
         #if canImport(Metal)
             // First, check if Metal is available at all
             guard MTLCreateSystemDefaultDevice() != nil else {
@@ -47,7 +51,7 @@ enum MLXAvailabilityChecker {
         #else
             return false
         #endif
-    }
+    }()
 
     /// Get the directory containing the executable, following symlinks
     private static func resolveExecutableDirectory() -> String {

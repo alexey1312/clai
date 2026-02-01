@@ -46,7 +46,7 @@ struct PlatformInfo: Sendable {
 
 /// Detects current platform capabilities
 enum PlatformDetector {
-    static var current: PlatformInfo {
+    static let current: PlatformInfo = {
         let processInfo = ProcessInfo.processInfo
 
         #if os(macOS)
@@ -72,7 +72,7 @@ enum PlatformDetector {
             isAppleSilicon: isAppleSilicon,
             macOSVersion: macOSVersion
         )
-    }
+    }()
 
     #if os(macOS)
         private static func detectAppleSilicon() -> Bool {
