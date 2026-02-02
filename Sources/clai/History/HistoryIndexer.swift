@@ -119,7 +119,9 @@ struct ShellIndexResult: Sendable {
     var totalParsed: Int = 0
     var parseErrors: Int = 0
 
-    var wasIndexed: Bool { result != nil }
+    var wasIndexed: Bool {
+        result != nil
+    }
 }
 
 /// Combined result of indexing all shells
