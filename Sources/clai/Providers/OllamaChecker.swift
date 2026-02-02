@@ -23,27 +23,40 @@ struct OllamaModelInfo: Sendable {
 enum OllamaChecker {
     private static let defaultHost = "http://localhost:11434"
 
-    // Cache the availability check to avoid redundant network requests
-    // Using nonisolated(unsafe) to satisfy strict concurrency with NSLock
-    private nonisolated(unsafe) static var _cachedAvailability: (host: String, timestamp: Date, isAvailable: Bool)?
-    private nonisolated(unsafe) static let _cacheLock = NSLock()
-    private static let _cacheTTL: TimeInterval = 5.0 // 5 seconds
+    /// Actor-based cache to safely handle concurrent availability checks
+    /// and prevent thundering herd problem
+    private actor AvailabilityCache {
+        private var cache: [String: (timestamp: Date, isAvailable: Bool)] = [:]
+        private var inProgressTasks: [String: Task<Bool, Never>] = [:]
+        private let ttl: TimeInterval = 5.0
 
-    /// Check if Ollama is running and accessible
-    static func isAvailable(host: String = defaultHost) async -> Bool {
-        // Check cache first
-        _cacheLock.lock()
-        if let cache = _cachedAvailability,
-           cache.host == host,
-           Date().timeIntervalSince(cache.timestamp) < _cacheTTL
-        {
-            let result = cache.isAvailable
-            _cacheLock.unlock()
+        func isAvailable(host: String) async -> Bool {
+            // Return cached result if still valid
+            if let entry = cache[host], Date().timeIntervalSince(entry.timestamp) < ttl {
+                return entry.isAvailable
+            }
+
+            // If there's already an in-flight request for this host, wait for it
+            if let task = inProgressTasks[host] {
+                return await task.value
+            }
+
+            // Start a new request
+            let task = Task {
+                await Self.performAvailabilityCheck(host: host)
+            }
+            inProgressTasks[host] = task
+
+            let result = await task.value
+
+            // Update cache and clear in-progress task
+            cache[host] = (timestamp: Date(), isAvailable: result)
+            inProgressTasks[host] = nil
+
             return result
         }
-        _cacheLock.unlock()
 
-        let isAvailable: Bool = await {
+        private static func performAvailabilityCheck(host: String) async -> Bool {
             guard let url = URL(string: "\(host)/api/tags") else {
                 return false
             }
@@ -57,14 +70,14 @@ enum OllamaChecker {
             } catch {
                 return false
             }
-        }()
+        }
+    }
 
-        // Update cache
-        _cacheLock.lock()
-        _cachedAvailability = (host: host, timestamp: Date(), isAvailable: isAvailable)
-        _cacheLock.unlock()
+    private static let availabilityCache = AvailabilityCache()
 
-        return isAvailable
+    /// Check if Ollama is running and accessible
+    static func isAvailable(host: String = defaultHost) async -> Bool {
+        await availabilityCache.isAvailable(host: host)
     }
 
     /// Get list of available models (names only)

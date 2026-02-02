@@ -1,24 +1,33 @@
-
 @testable import clai
 import XCTest
 
 final class OllamaPerfTests: XCTestCase {
+    func testOllamaAvailabilityCheckCaching() async {
+        // First call - populates the cache (may involve network request)
+        let firstCallStart = Date()
+        _ = await OllamaChecker.isAvailable()
+        let firstCallDuration = Date().timeIntervalSince(firstCallStart)
 
-    func testOllamaAvailabilityCheckPerformance() async {
-        let iterations = 10
-        let startTime = Date()
+        // Subsequent calls should hit the cache and be very fast
+        let cachedIterations = 9
+        let cachedCallsStart = Date()
 
-        for _ in 0..<iterations {
+        for _ in 0 ..< cachedIterations {
             _ = await OllamaChecker.isAvailable()
         }
 
-        let endTime = Date()
-        let duration = endTime.timeIntervalSince(startTime)
-        let average = duration / Double(iterations)
+        let cachedCallsDuration = Date().timeIntervalSince(cachedCallsStart)
+        let averageCachedCall = cachedCallsDuration / Double(cachedIterations)
 
-        print("Ollama availability check took \(duration)s for \(iterations) iterations. Average: \(average)s")
+        print("First call (may include network): \(firstCallDuration)s")
+        print("Cached calls (\(cachedIterations)x): \(cachedCallsDuration)s total, \(averageCachedCall)s average")
 
-        // This is just to see the output, not asserting anything strict
-        XCTAssert(true)
+        // Cached calls should be significantly faster than 100ms each
+        // (network timeout alone would be much longer)
+        XCTAssertLessThan(
+            averageCachedCall,
+            0.1,
+            "Cached availability checks should be very fast (<100ms)"
+        )
     }
 }
