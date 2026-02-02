@@ -7,4 +7,4 @@
 --wraparguments before-first
 --wrapcollections before-first
 --exclude .build,Packages,DerivedData
---disable docComments
+--disable docComments,wrapPropertyBodies

@@ -5,7 +5,9 @@ struct IndexResult: Sendable {
     let inserted: Int
     let updated: Int
 
-    var total: Int { inserted + updated }
+    var total: Int {
+        inserted + updated
+    }
 }
 
 /// A search result from the history store
