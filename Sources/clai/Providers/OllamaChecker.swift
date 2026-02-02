@@ -25,8 +25,8 @@ enum OllamaChecker {
 
     // Cache the availability check to avoid redundant network requests
     // Using nonisolated(unsafe) to satisfy strict concurrency with NSLock
-    private static nonisolated(unsafe) var _cachedAvailability: (host: String, timestamp: Date, isAvailable: Bool)?
-    private static nonisolated(unsafe) let _cacheLock = NSLock()
+    private nonisolated(unsafe) static var _cachedAvailability: (host: String, timestamp: Date, isAvailable: Bool)?
+    private nonisolated(unsafe) static let _cacheLock = NSLock()
     private static let _cacheTTL: TimeInterval = 5.0 // 5 seconds
 
     /// Check if Ollama is running and accessible
