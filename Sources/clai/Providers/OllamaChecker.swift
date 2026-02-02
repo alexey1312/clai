@@ -23,21 +23,48 @@ struct OllamaModelInfo: Sendable {
 enum OllamaChecker {
     private static let defaultHost = "http://localhost:11434"
 
+    // Cache the availability check to avoid redundant network requests
+    // Using nonisolated(unsafe) to satisfy strict concurrency with NSLock
+    nonisolated(unsafe) private static var _cachedAvailability: (host: String, timestamp: Date, isAvailable: Bool)?
+    nonisolated(unsafe) private static let _cacheLock = NSLock()
+    private static let _cacheTTL: TimeInterval = 5.0 // 5 seconds
+
     /// Check if Ollama is running and accessible
     static func isAvailable(host: String = defaultHost) async -> Bool {
-        guard let url = URL(string: "\(host)/api/tags") else {
-            return false
+        // Check cache first
+        _cacheLock.lock()
+        if let cache = _cachedAvailability,
+           cache.host == host,
+           Date().timeIntervalSince(cache.timestamp) < _cacheTTL
+        {
+            let result = cache.isAvailable
+            _cacheLock.unlock()
+            return result
         }
+        _cacheLock.unlock()
 
-        do {
-            let (_, response) = try await URLSession.shared.data(from: url)
-            guard let httpResponse = response as? HTTPURLResponse else {
+        let isAvailable: Bool = await {
+            guard let url = URL(string: "\(host)/api/tags") else {
                 return false
             }
-            return httpResponse.statusCode == 200
-        } catch {
-            return false
-        }
+
+            do {
+                let (_, response) = try await URLSession.shared.data(from: url)
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    return false
+                }
+                return httpResponse.statusCode == 200
+            } catch {
+                return false
+            }
+        }()
+
+        // Update cache
+        _cacheLock.lock()
+        _cachedAvailability = (host: host, timestamp: Date(), isAvailable: isAvailable)
+        _cacheLock.unlock()
+
+        return isAvailable
     }
 
     /// Get list of available models (names only)
