@@ -23,7 +23,7 @@ final class SetupManager: Sendable {
         }
 
         // Load current config
-        var config = Config.load()
+        var config = try Config.load()
 
         terminal.showStep(2, of: 3, message: "Detecting available providers...")
 

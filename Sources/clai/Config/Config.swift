@@ -1,5 +1,6 @@
 import Foundation
-import Yams
+
+// MARK: - Configuration
 
 /// Configuration for clai
 struct Config: Codable, Sendable {
@@ -128,130 +129,7 @@ struct CacheConfig: Codable, Sendable {
     }
 }
 
-// MARK: - Config Loading
-
-extension Config {
-    /// Config file location
-    static var configFileURL: URL {
-        let configDir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".config")
-            .appendingPathComponent("clai")
-        return configDir.appendingPathComponent("config.yaml")
-    }
-
-    /// Load configuration from file, environment variables, and defaults
-    static func load() -> Config {
-        var config = Config.default
-
-        // Try to load from config file
-        if let fileConfig = loadFromFile() {
-            config = config.merged(with: fileConfig)
-        }
-
-        // Apply environment variable overrides
-        config = config.applyingEnvironmentOverrides()
-
-        return config
-    }
-
-    /// Load configuration from YAML file
-    private static func loadFromFile() -> Config? {
-        let fileURL = configFileURL
-
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            return nil
-        }
-
-        do {
-            let yamlString = try String(contentsOf: fileURL, encoding: .utf8)
-            let decoder = YAMLDecoder()
-            return try decoder.decode(Config.self, from: yamlString)
-        } catch {
-            // Log error but don't crash
-            print("Warning: Failed to load config file: \(error.localizedDescription)")
-            return nil
-        }
-    }
-
-    /// Merge another config into this one (other takes precedence)
-    func merged(with other: Config) -> Config {
-        Config(
-            provider: ProviderConfig(
-                defaultProvider: other.provider.defaultProvider ?? provider.defaultProvider,
-                fallback: other.provider.fallback.isEmpty ? provider.fallback : other.provider.fallback
-            ),
-            mlx: MLXConfig(
-                modelId: other.mlx.modelId,
-                downloadConsented: other.mlx.downloadConsented || mlx.downloadConsented,
-                preferSmallModel: other.mlx.preferSmallModel || mlx.preferSmallModel
-            ),
-            ollama: OllamaConfig(
-                model: other.ollama.model,
-                host: other.ollama.host
-            ),
-            anthropic: CloudProviderConfig(
-                apiKeyEnv: other.anthropic.apiKeyEnv,
-                model: other.anthropic.model
-            ),
-            openai: CloudProviderConfig(
-                apiKeyEnv: other.openai.apiKeyEnv,
-                model: other.openai.model
-            ),
-            cache: CacheConfig(
-                enabled: other.cache.enabled,
-                ttlDays: other.cache.ttlDays
-            )
-        )
-    }
-
-    /// Apply environment variable overrides
-    func applyingEnvironmentOverrides() -> Config {
-        var config = self
-        let env = ProcessInfo.processInfo.environment
-
-        // CLAI_PROVIDER overrides default provider
-        if let providerOverride = env["CLAI_PROVIDER"] {
-            config.provider.defaultProvider = providerOverride
-        }
-
-        // CLAI_MLX_MODEL overrides MLX model
-        if let mlxModel = env["CLAI_MLX_MODEL"] {
-            config.mlx.modelId = mlxModel
-        }
-
-        // CLAI_OLLAMA_MODEL overrides Ollama model
-        if let ollamaModel = env["CLAI_OLLAMA_MODEL"] {
-            config.ollama.model = ollamaModel
-        }
-
-        // CLAI_OLLAMA_HOST overrides Ollama host
-        if let ollamaHost = env["CLAI_OLLAMA_HOST"] {
-            config.ollama.host = ollamaHost
-        }
-
-        // CLAI_CACHE_ENABLED controls caching
-        if let cacheEnabled = env["CLAI_CACHE_ENABLED"] {
-            config.cache.enabled = cacheEnabled.lowercased() == "true" || cacheEnabled == "1"
-        }
-
-        return config
-    }
-
-    /// Save configuration to file
-    func save() throws {
-        let fileURL = Config.configFileURL
-        let configDir = fileURL.deletingLastPathComponent()
-
-        // Create config directory if needed
-        try FileManager.default.createDirectory(at: configDir, withIntermediateDirectories: true)
-
-        // Encode to YAML
-        let encoder = YAMLEncoder()
-        let yamlString = try encoder.encode(self)
-
-        try yamlString.write(to: fileURL, atomically: true, encoding: .utf8)
-    }
-}
+// Config loading methods are in ConfigLoading.swift
 
 // MARK: - Validation
 

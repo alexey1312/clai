@@ -20,7 +20,7 @@ struct ExamplesCommand: AsyncParsableCommand {
     var command: String
 
     mutating func run() async throws {
-        let engine = ClaiEngine(options: options)
+        let engine = try ClaiEngine(options: options)
         try await engine.examples(command: command)
     }
 }

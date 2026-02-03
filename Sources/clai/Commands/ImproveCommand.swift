@@ -174,7 +174,7 @@ struct ImproveCommand: AsyncParsableCommand {
             terminal.showHeader("AI Suggestions")
             print()
 
-            let engine = ClaiEngine(options: options)
+            let engine = try ClaiEngine(options: options)
             let prompt = buildImprovePrompt(command: command, analysis: analysis)
 
             let (response, wasStreamed) = try await generateImprovement(

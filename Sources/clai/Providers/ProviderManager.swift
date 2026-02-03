@@ -23,11 +23,33 @@ protocol LLMProvider: Sendable {
 final class ProviderManager: Sendable {
     private let preferredProvider: Provider?
 
-    /// Default fallback chain: Foundation → MLX → Ollama → Anthropic → OpenAI
-    private let defaultChain: [Provider] = [.foundation, .mlx, .ollama, .anthropic, .openai]
+    /// Fallback chain built from config (or defaults)
+    private let fallbackChain: [Provider]
 
-    init(preferredProvider: Provider?) {
+    init(preferredProvider: Provider?, config: Config) {
         self.preferredProvider = preferredProvider
+
+        // Build fallback chain from config
+        // Start with defaultProvider if set, then add fallback chain (avoiding duplicates)
+        var chain: [Provider] = []
+        if let defaultStr = config.provider.defaultProvider,
+           let defaultProvider = Provider(rawValue: defaultStr)
+        {
+            chain.append(defaultProvider)
+        }
+
+        for providerStr in config.provider.fallback {
+            if let provider = Provider(rawValue: providerStr), !chain.contains(provider) {
+                chain.append(provider)
+            }
+        }
+
+        // Fallback to default chain if config resulted in empty chain (e.g., all invalid provider names)
+        if chain.isEmpty {
+            chain = [.foundation, .mlx, .ollama, .anthropic, .openai]
+        }
+
+        fallbackChain = chain
     }
 
     /// Get the first available provider from the chain
@@ -62,15 +84,12 @@ final class ProviderManager: Sendable {
             }
 
             // Check providers in parallel to hide latency (especially for network checks like Ollama)
-            let tasks = [
-                Provider.foundation: Task { await isAvailable(.foundation) },
-                Provider.mlx: Task { await isAvailable(.mlx) },
-                Provider.ollama: Task { await isAvailable(.ollama) },
-                Provider.anthropic: Task { await isAvailable(.anthropic) },
-                Provider.openai: Task { await isAvailable(.openai) },
-            ]
-
-            let chain = self.defaultChain
+            // Only check providers that are in the fallback chain
+            let chain = self.fallbackChain
+            var tasks: [Provider: Task<Bool, Never>] = [:]
+            for provider in chain {
+                tasks[provider] = Task { await self.isAvailable(provider) }
+            }
 
             let task = Task {
                 // Ensure we cancel any unused tasks when we exit
@@ -272,7 +291,15 @@ struct MLXProvider: LLMProvider {
             }
 
             // Get model configuration
-            let config = Config.load()
+            let config: Config
+            do {
+                config = try Config.load()
+            } catch {
+                // Log config error to stderr for debugging (MLX appears unavailable due to config issue)
+                fputs("MLX: Config load failed: \(error.localizedDescription)\n", stderr)
+                return nil
+            }
+            // Small model for fast fallback when preferred model isn't downloaded (~600MB)
             let smallModelId = "mlx-community/Qwen3-0.6B-4bit"
 
             // Determine preferred model based on config

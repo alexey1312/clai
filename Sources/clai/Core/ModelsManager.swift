@@ -31,7 +31,7 @@ enum ModelSelection: Sendable {
 }
 
 /// Manager for model operations
-final class ModelsManager {
+final class ModelsManager: @unchecked Sendable {
     private let terminal: TerminalUI
     private let verbose: Bool
 
@@ -43,8 +43,8 @@ final class ModelsManager {
     // MARK: - Discovery
 
     /// Get all MLX models (downloaded + available from curated list)
-    func getAllMLXModels() async -> [MLXModelInfo] {
-        let config = Config.load()
+    func getAllMLXModels() async throws -> [MLXModelInfo] {
+        let config = try Config.load()
         let downloaded = await MLXModelDiscovery.discoverDownloaded()
         return CuratedModels.getModelsWithStatus(
             downloaded: downloaded,
@@ -53,8 +53,8 @@ final class ModelsManager {
     }
 
     /// Get only downloaded MLX models
-    func getDownloadedMLXModels() async -> [MLXModelInfo] {
-        let config = Config.load()
+    func getDownloadedMLXModels() async throws -> [MLXModelInfo] {
+        let config = try Config.load()
         var models = await MLXModelDiscovery.discoverDownloaded()
 
         // Mark default
@@ -66,14 +66,14 @@ final class ModelsManager {
     }
 
     /// Get Ollama models
-    func getOllamaModels() async -> [OllamaModelInfo] {
-        let config = Config.load()
+    func getOllamaModels() async throws -> [OllamaModelInfo] {
+        let config = try Config.load()
         return await OllamaChecker.availableModelsDetailed(host: config.ollama.host)
     }
 
     /// Check if Ollama is available
-    func isOllamaAvailable() async -> Bool {
-        let config = Config.load()
+    func isOllamaAvailable() async throws -> Bool {
+        let config = try Config.load()
         return await OllamaChecker.isAvailable(host: config.ollama.host)
     }
 
@@ -81,7 +81,7 @@ final class ModelsManager {
 
     /// Set default model
     func setDefaultModel(_ selection: ModelSelection) throws {
-        var config = Config.load()
+        var config = try Config.load()
 
         switch selection {
         case let .mlx(modelId):
@@ -96,8 +96,8 @@ final class ModelsManager {
     }
 
     /// Get current default model ID
-    func getCurrentDefault() -> String {
-        let config = Config.load()
+    func getCurrentDefault() throws -> String {
+        let config = try Config.load()
         return config.mlx.modelId
     }
 
@@ -119,7 +119,7 @@ final class ModelsManager {
 
             terminal.showSuccess("Model downloaded successfully!")
 
-            var config = Config.load()
+            var config = try Config.load()
             config.mlx.downloadConsented = true
             try config.save()
         #else
@@ -135,7 +135,7 @@ final class ModelsManager {
         terminal.showSuccess("Deleted \(modelId)")
 
         // If this was the default, suggest setting a new one
-        let config = Config.load()
+        let config = try Config.load()
         if config.mlx.modelId == modelId {
             terminal.showWarning("This was your default model. Please set a new default.")
         }
@@ -149,7 +149,7 @@ final class ModelsManager {
 
         while !shouldExit {
             // Display current state
-            await printModelsList()
+            try await printModelsList()
 
             // Get action from user
             guard let action = await terminal.promptChoice(
@@ -179,12 +179,12 @@ final class ModelsManager {
 
     // MARK: - Private Helpers
 
-    private func printModelsList() async {
+    private func printModelsList() async throws {
         async let mlxModelsFuture = getAllMLXModels()
         async let ollamaModelsFuture = getOllamaModels()
-        let mlxModels = await mlxModelsFuture
-        let ollamaModels = await ollamaModelsFuture
-        let config = Config.load()
+        let mlxModels = try await mlxModelsFuture
+        let ollamaModels = try await ollamaModelsFuture
+        let config = try Config.load()
 
         terminal.printLine()
         terminal.showHeader("MLX Models (Apple Silicon)")
@@ -228,9 +228,9 @@ final class ModelsManager {
         async let mlxModelsFuture = getAllMLXModels()
         async let ollamaModelsFuture = getOllamaModels()
 
-        let resolvedMlxModels = await mlxModelsFuture
+        let resolvedMlxModels = try await mlxModelsFuture
         let mlxModels = resolvedMlxModels.filter(\.isDownloaded)
-        let ollamaModels = await ollamaModelsFuture
+        let ollamaModels = try await ollamaModelsFuture
 
         var options: [(String, ModelSelection)] = []
 
@@ -274,7 +274,7 @@ final class ModelsManager {
     }
 
     private func handleDownload() async throws {
-        let mlxModels = await getAllMLXModels()
+        let mlxModels = try await getAllMLXModels()
         let notDownloaded = mlxModels.filter { !$0.isDownloaded }
 
         if notDownloaded.isEmpty {
@@ -315,7 +315,7 @@ final class ModelsManager {
     }
 
     private func handleDelete() async throws {
-        let downloaded = await getDownloadedMLXModels()
+        let downloaded = try await getDownloadedMLXModels()
 
         if downloaded.isEmpty {
             terminal.showWarning("No MLX models downloaded.")
@@ -362,12 +362,12 @@ final class ModelsManager {
     // MARK: - Non-Interactive List
 
     /// Print models list for non-interactive mode
-    func printList() async {
+    func printList() async throws {
         async let mlxModelsFuture = getAllMLXModels()
         async let ollamaModelsFuture = getOllamaModels()
-        let mlxModels = await mlxModelsFuture
-        let ollamaModels = await ollamaModelsFuture
-        let config = Config.load()
+        let mlxModels = try await mlxModelsFuture
+        let ollamaModels = try await ollamaModelsFuture
+        let config = try Config.load()
 
         terminal.printLine()
         terminal.printLine("MLX Models:")

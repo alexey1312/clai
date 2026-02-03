@@ -46,7 +46,7 @@ struct SuggestCommand: AsyncParsableCommand {
             taskString = input.trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
-        let engine = ClaiEngine(options: options)
+        let engine = try ClaiEngine(options: options)
         try await engine.suggest(task: taskString)
     }
 }
