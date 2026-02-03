@@ -46,7 +46,7 @@ struct ExplainCommand: AsyncParsableCommand {
             commandString = input.trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
-        let engine = ClaiEngine(options: options)
+        let engine = try ClaiEngine(options: options)
         try await engine.explain(command: commandString)
     }
 }

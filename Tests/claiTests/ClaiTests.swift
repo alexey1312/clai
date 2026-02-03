@@ -89,68 +89,7 @@ struct PromptBuildingTests {
     }
 }
 
-@Suite("Configuration Tests")
-struct ConfigurationTests {
-    @Test("Config has valid defaults")
-    func defaultConfig() {
-        let config = Config.default
-        #expect(!config.provider.fallback.isEmpty)
-        #expect(config.cache.ttlDays > 0)
-    }
-
-    @Test("Config can be encoded to YAML")
-    func configEncode() throws {
-        let config = Config.default
-        let encoder = YAMLEncoder()
-        let yaml = try encoder.encode(config)
-        #expect(!yaml.isEmpty)
-        #expect(yaml.contains("provider"))
-    }
-
-    @Test("Config validation passes for valid config")
-    func validConfigValidation() throws {
-        let config = Config.default
-        try config.validate()
-    }
-
-    @Test("Config validation fails for invalid provider")
-    func invalidProviderValidation() {
-        var config = Config.default
-        config.provider.defaultProvider = "invalid_provider"
-        #expect(throws: Config.ValidationError.self) {
-            try config.validate()
-        }
-    }
-
-    @Test("Config validation fails for invalid TTL")
-    func invalidTTLValidation() {
-        var config = Config.default
-        config.cache.ttlDays = 0
-        #expect(throws: Config.ValidationError.self) {
-            try config.validate()
-        }
-    }
-
-    @Test("Config merging works correctly")
-    func configMerging() {
-        let base = Config.default
-        var overlay = Config.default
-        overlay.provider.defaultProvider = "ollama"
-        overlay.cache.ttlDays = 14
-
-        let merged = base.merged(with: overlay)
-        #expect(merged.provider.defaultProvider == "ollama")
-        #expect(merged.cache.ttlDays == 14)
-    }
-
-    @Test("Config environment override works")
-    func environmentOverride() {
-        // Note: This test depends on environment variables not being set
-        let config = Config.default.applyingEnvironmentOverrides()
-        // Default should still be there if env vars not set
-        #expect(config.provider.fallback == Config.default.provider.fallback)
-    }
-}
+// Configuration tests moved to ConfigTests.swift
 
 @Suite("Cache Tests")
 struct CacheTests {

@@ -31,7 +31,7 @@ struct ModelsCommand: AsyncParsableCommand {
         guard isatty(STDIN_FILENO) != 0 else {
             // Non-interactive mode, fall back to list
             let manager = ModelsManager(verbose: verbose)
-            await manager.printList()
+            try await manager.printList()
             return
         }
 
@@ -52,6 +52,6 @@ struct ListModelsCommand: AsyncParsableCommand {
 
     mutating func run() async throws {
         let manager = ModelsManager(verbose: verbose)
-        await manager.printList()
+        try await manager.printList()
     }
 }

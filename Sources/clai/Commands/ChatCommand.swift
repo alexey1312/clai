@@ -39,7 +39,7 @@ struct ChatCommand: AsyncParsableCommand {
         }
 
         let terminal = TerminalUI(verbose: options.verbose)
-        let engine = ClaiEngine(options: options)
+        let engine = try ClaiEngine(options: options)
         let session = ChatSession()
 
         // Show welcome message

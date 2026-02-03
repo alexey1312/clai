@@ -27,12 +27,32 @@ final class ClaiEngine: Sendable {
     private let terminal: TerminalUI
     private let cache: ResponseCache?
 
-    init(options: GlobalOptions) {
+    /// Errors specific to ClaiEngine initialization
+    enum InitError: Error, LocalizedError {
+        case configurationError(Error)
+
+        var errorDescription: String? {
+            switch self {
+            case let .configurationError(underlying):
+                "Configuration error: \(underlying.localizedDescription)"
+            }
+        }
+    }
+
+    init(options: GlobalOptions) throws {
         // Disable stdout buffering for immediate output in non-TTY environments
         disableStdoutBuffering()
 
         self.options = options
-        let config = Config.load()
+
+        // Load configuration (throws on errors)
+        let config: Config
+        do {
+            config = try Config.load()
+        } catch {
+            throw InitError.configurationError(error)
+        }
+
         providerManager = ProviderManager(preferredProvider: options.provider, config: config)
         contextGatherer = ContextGatherer()
         terminal = TerminalUI(verbose: options.verbose)

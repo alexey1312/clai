@@ -303,10 +303,11 @@ actor DaemonServer {
     // MARK: - Provider Management
 
     private func preloadProvider() async {
-        let manager = ProviderManager(preferredProvider: nil)
-        providerManager = manager
-
         do {
+            let config = try Config.load()
+            let manager = ProviderManager(preferredProvider: nil, config: config)
+            providerManager = manager
+
             let provider = try await manager.getAvailableProvider()
             currentProvider = provider
             log("Provider loaded: \(provider.name)")
