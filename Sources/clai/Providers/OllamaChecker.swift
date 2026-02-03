@@ -25,7 +25,7 @@ enum OllamaChecker {
 
     // Cache the availability check to avoid redundant network requests
     // Using nonisolated(unsafe) to satisfy strict concurrency with NSLock
-    private nonisolated(unsafe) static var _cachedAvailability: (host: String, timestamp: Date, isAvailable: Bool)?
+    private nonisolated(unsafe) static var _cachedAvailability: (host: String, timestamp: Date, isAvailable: Bool, models: [String]?)?
     private nonisolated(unsafe) static let _cacheLock = NSLock()
     private static let _cacheTTL: TimeInterval = 5.0 // 5 seconds
 
@@ -43,25 +43,36 @@ enum OllamaChecker {
         }
         _cacheLock.unlock()
 
-        let isAvailable: Bool = await {
+        let (isAvailable, models): (Bool, [String]?) = await {
             guard let url = URL(string: "\(host)/api/tags") else {
-                return false
+                return (false, nil)
             }
 
             do {
-                let (_, response) = try await URLSession.shared.data(from: url)
+                let (data, response) = try await URLSession.shared.data(from: url)
                 guard let httpResponse = response as? HTTPURLResponse else {
-                    return false
+                    return (false, nil)
                 }
-                return httpResponse.statusCode == 200
+
+                let isUp = httpResponse.statusCode == 200
+                var fetchedModels: [String]?
+
+                if isUp {
+                    // Opportunistically decode models to populate cache
+                    if let tagsResponse = try? JSONDecoder().decode(OllamaTagsResponse.self, from: data) {
+                        fetchedModels = tagsResponse.models.map(\.name)
+                    }
+                }
+
+                return (isUp, fetchedModels)
             } catch {
-                return false
+                return (false, nil)
             }
         }()
 
         // Update cache
         _cacheLock.lock()
-        _cachedAvailability = (host: host, timestamp: Date(), isAvailable: isAvailable)
+        _cachedAvailability = (host: host, timestamp: Date(), isAvailable: isAvailable, models: models)
         _cacheLock.unlock()
 
         return isAvailable
@@ -69,6 +80,18 @@ enum OllamaChecker {
 
     /// Get list of available models (names only)
     static func availableModels(host: String = defaultHost) async -> [String] {
+        // Check cache first
+        _cacheLock.lock()
+        if let cache = _cachedAvailability,
+           cache.host == host,
+           Date().timeIntervalSince(cache.timestamp) < _cacheTTL,
+           let cachedModels = cache.models
+        {
+            _cacheLock.unlock()
+            return cachedModels
+        }
+        _cacheLock.unlock()
+
         guard let url = URL(string: "\(host)/api/tags") else {
             return []
         }
@@ -76,7 +99,14 @@ enum OllamaChecker {
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             let response = try JSONDecoder().decode(OllamaTagsResponse.self, from: data)
-            return response.models.map(\.name)
+            let models = response.models.map(\.name)
+
+            // Update cache with fresh models
+            _cacheLock.lock()
+            _cachedAvailability = (host: host, timestamp: Date(), isAvailable: true, models: models)
+            _cacheLock.unlock()
+
+            return models
         } catch {
             return []
         }
