@@ -23,11 +23,33 @@ protocol LLMProvider: Sendable {
 final class ProviderManager: Sendable {
     private let preferredProvider: Provider?
 
-    /// Default fallback chain: Foundation → MLX → Ollama → Anthropic → OpenAI
-    private let defaultChain: [Provider] = [.foundation, .mlx, .ollama, .anthropic, .openai]
+    /// Fallback chain built from config (or defaults)
+    private let fallbackChain: [Provider]
 
-    init(preferredProvider: Provider?) {
+    init(preferredProvider: Provider?, config: Config? = nil) {
         self.preferredProvider = preferredProvider
+
+        // Build fallback chain from config
+        let resolvedConfig = config ?? Config.load()
+
+        // Start with defaultProvider if set, then add fallback chain (avoiding duplicates)
+        var chain: [Provider] = []
+        if let defaultStr = resolvedConfig.provider.defaultProvider,
+           let defaultProvider = Provider(rawValue: defaultStr)
+        {
+            chain.append(defaultProvider)
+        }
+
+        for providerStr in resolvedConfig.provider.fallback {
+            if let provider = Provider(rawValue: providerStr), !chain.contains(provider) {
+                chain.append(provider)
+            }
+        }
+
+        // Fallback to hardcoded default if config produced empty chain
+        fallbackChain = chain.isEmpty
+            ? [.foundation, .mlx, .ollama, .anthropic, .openai]
+            : chain
     }
 
     /// Get the first available provider from the chain
@@ -62,15 +84,12 @@ final class ProviderManager: Sendable {
             }
 
             // Check providers in parallel to hide latency (especially for network checks like Ollama)
-            let tasks = [
-                Provider.foundation: Task { await isAvailable(.foundation) },
-                Provider.mlx: Task { await isAvailable(.mlx) },
-                Provider.ollama: Task { await isAvailable(.ollama) },
-                Provider.anthropic: Task { await isAvailable(.anthropic) },
-                Provider.openai: Task { await isAvailable(.openai) },
-            ]
-
-            let chain = self.defaultChain
+            // Only check providers that are in the fallback chain
+            let chain = self.fallbackChain
+            var tasks: [Provider: Task<Bool, Never>] = [:]
+            for provider in chain {
+                tasks[provider] = Task { await self.isAvailable(provider) }
+            }
 
             let task = Task {
                 // Ensure we cancel any unused tasks when we exit

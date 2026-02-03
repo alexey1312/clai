@@ -32,7 +32,8 @@ final class ClaiEngine: Sendable {
         disableStdoutBuffering()
 
         self.options = options
-        providerManager = ProviderManager(preferredProvider: options.provider)
+        let config = Config.load()
+        providerManager = ProviderManager(preferredProvider: options.provider, config: config)
         contextGatherer = ContextGatherer()
         terminal = TerminalUI(verbose: options.verbose)
 
@@ -204,7 +205,12 @@ final class ClaiEngine: Sendable {
             throw ClaiError.emptyResponse(provider.name)
         }
 
-        return (response, wasStreamed)
+        // Cache the response if caching is enabled
+        if let cacheKey, let cache {
+            try? cache.set(key: cacheKey, response: response, provider: provider.name)
+        }
+
+        return GenerationResult(content: response, wasStreamed: wasStreamed, providerName: provider.name)
     }
 
     private func generateWithStreaming(provider: LLMProvider, prompt: String) async throws -> String {

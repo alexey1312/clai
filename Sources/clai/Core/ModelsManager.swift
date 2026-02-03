@@ -31,7 +31,7 @@ enum ModelSelection: Sendable {
 }
 
 /// Manager for model operations
-final class ModelsManager {
+final class ModelsManager: @unchecked Sendable {
     private let terminal: TerminalUI
     private let verbose: Bool
 

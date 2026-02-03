@@ -1,14 +1,12 @@
-
 @testable import clai
 import XCTest
 
 final class OllamaPerfTests: XCTestCase {
-
     func testOllamaAvailabilityCheckPerformance() async {
         let iterations = 10
         let startTime = Date()
 
-        for _ in 0..<iterations {
+        for _ in 0 ..< iterations {
             _ = await OllamaChecker.isAvailable()
         }
 
