@@ -15,7 +15,7 @@ struct OllamaModelInfo: Sendable {
     /// Human-readable size (e.g., "2.0GB")
     let sizeFormatted: String
 
-    /// Model digest (hash). Ollama API always returns this field.
+    /// Model digest (hash)
     let digest: String
 }
 
@@ -38,7 +38,7 @@ enum OllamaChecker {
 
     /// Check if Ollama is running and accessible
     static func isAvailable(host: String = defaultHost) async -> Bool {
-        // Check cache first (using withLock for async-safe access)
+        // Check cache first
         let cachedResult: Bool? = _cacheLock.withLock {
             if let cache = _cachedAvailability,
                cache.host == host,
@@ -76,11 +76,15 @@ enum OllamaChecker {
 
                 return (isUp, fetchedModels)
             } catch {
+                // Network errors are expected when Ollama isn't running
+                #if DEBUG
+                    fputs("OllamaChecker: \(error.localizedDescription)\n", stderr)
+                #endif
                 return (false, nil)
             }
         }()
 
-        // Update cache (using withLock for async-safe access)
+        // Update cache
         _cacheLock.withLock {
             _cachedAvailability = AvailabilityCache(
                 host: host, timestamp: Date(), isAvailable: isAvailable, models: models
@@ -92,7 +96,7 @@ enum OllamaChecker {
 
     /// Get list of available models (names only)
     static func availableModels(host: String = defaultHost) async -> [String] {
-        // Check cache first (using withLock for async-safe access)
+        // Check cache first
         let cachedModels: [String]? = _cacheLock.withLock {
             if let cache = _cachedAvailability,
                cache.host == host,
@@ -117,7 +121,7 @@ enum OllamaChecker {
             let response = try JSONDecoder().decode(OllamaTagsResponse.self, from: data)
             let models = response.models.map(\.name)
 
-            // Update cache with fresh models (using withLock for async-safe access)
+            // Update cache with fresh models
             _cacheLock.withLock {
                 _cachedAvailability = AvailabilityCache(
                     host: host, timestamp: Date(), isAvailable: true, models: models
@@ -126,6 +130,9 @@ enum OllamaChecker {
 
             return models
         } catch {
+            #if DEBUG
+                fputs("OllamaChecker.availableModels: \(error.localizedDescription)\n", stderr)
+            #endif
             return []
         }
     }
@@ -151,6 +158,9 @@ enum OllamaChecker {
                 )
             }
         } catch {
+            #if DEBUG
+                fputs("OllamaChecker.availableModelsDetailed: \(error.localizedDescription)\n", stderr)
+            #endif
             return []
         }
     }

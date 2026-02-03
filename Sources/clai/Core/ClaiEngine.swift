@@ -57,8 +57,15 @@ final class ClaiEngine: Sendable {
         contextGatherer = ContextGatherer()
         terminal = TerminalUI(verbose: options.verbose)
 
-        // Initialize cache (optional, fails gracefully)
-        cache = try? ResponseCache()
+        // Initialize cache (optional - non-critical feature)
+        do {
+            cache = try ResponseCache()
+        } catch {
+            if options.verbose {
+                terminal.showWarning("Cache initialization failed: \(error.localizedDescription)")
+            }
+            cache = nil
+        }
     }
 
     /// Explain a CLI command in plain language
@@ -171,13 +178,38 @@ final class ClaiEngine: Sendable {
         return ResponseCache.generateKey(command: command, mode: mode, provider: providerName)
     }
 
+    /// Try to get cached response, logging errors in verbose mode
+    private func getCachedResponse(key: String) -> CachedResponse? {
+        guard let cache else { return nil }
+        do {
+            return try cache.get(key: key)
+        } catch {
+            if options.verbose {
+                terminal.showWarning("Cache read failed: \(error.localizedDescription)")
+            }
+            return nil
+        }
+    }
+
+    /// Try to cache response, logging errors in verbose mode
+    private func cacheResponse(key: String, response: String, provider: String) {
+        guard let cache else { return }
+        do {
+            try cache.set(key: key, response: response, provider: provider)
+        } catch {
+            if options.verbose {
+                terminal.showWarning("Cache write failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
     private func generateResponse(
         cacheKey: String?,
         loadingMessage: String = "Generating response...",
         promptProvider: @Sendable () async throws -> String
     ) async throws -> GenerationResult {
         // Check cache first (if not disabled)
-        if let cacheKey, let cache, let cached = try? cache.get(key: cacheKey) {
+        if let cacheKey, let cached = getCachedResponse(key: cacheKey) {
             if options.verbose {
                 terminal.showInfo("Using cached response from \(cached.provider)")
             }
@@ -226,8 +258,8 @@ final class ClaiEngine: Sendable {
         }
 
         // Cache the response if caching is enabled
-        if let cacheKey, let cache {
-            try? cache.set(key: cacheKey, response: response, provider: provider.name)
+        if let cacheKey {
+            cacheResponse(key: cacheKey, response: response, provider: provider.name)
         }
 
         return GenerationResult(content: response, wasStreamed: wasStreamed, providerName: provider.name)

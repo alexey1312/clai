@@ -7,6 +7,7 @@ enum ConfigError: Error, LocalizedError {
     case fileReadFailed(path: String, underlying: Error)
     case yamlParsingFailed(problem: String, line: Int, column: Int, snippet: String?)
     case yamlDecodingFailed(field: String, message: String)
+    case yamlEncodingFailed(underlying: Error)
 
     var errorDescription: String? {
         switch self {
@@ -24,6 +25,8 @@ enum ConfigError: Error, LocalizedError {
             }
         case let .yamlDecodingFailed(field, message):
             "Config error in '\(field)': \(message)"
+        case let .yamlEncodingFailed(underlying):
+            "Failed to encode config to YAML: \(underlying.localizedDescription)"
         }
     }
 }

@@ -30,8 +30,6 @@ final class ProviderManager: Sendable {
         self.preferredProvider = preferredProvider
 
         // Build fallback chain from config
-        // Config file is guaranteed to exist with valid defaults, so no hardcoded fallback needed
-
         // Start with defaultProvider if set, then add fallback chain (avoiding duplicates)
         var chain: [Provider] = []
         if let defaultStr = config.provider.defaultProvider,
@@ -44,6 +42,11 @@ final class ProviderManager: Sendable {
             if let provider = Provider(rawValue: providerStr), !chain.contains(provider) {
                 chain.append(provider)
             }
+        }
+
+        // Fallback to default chain if config resulted in empty chain (e.g., all invalid provider names)
+        if chain.isEmpty {
+            chain = [.foundation, .mlx, .ollama, .anthropic, .openai]
         }
 
         fallbackChain = chain
@@ -287,10 +290,16 @@ struct MLXProvider: LLMProvider {
                 return nil
             }
 
-            // Get model configuration (return nil if config fails)
-            guard let config = try? Config.load() else {
+            // Get model configuration
+            let config: Config
+            do {
+                config = try Config.load()
+            } catch {
+                // Log config error to stderr for debugging (MLX appears unavailable due to config issue)
+                fputs("MLX: Config load failed: \(error.localizedDescription)\n", stderr)
                 return nil
             }
+            // Small model for fast fallback when preferred model isn't downloaded (~600MB)
             let smallModelId = "mlx-community/Qwen3-0.6B-4bit"
 
             // Determine preferred model based on config

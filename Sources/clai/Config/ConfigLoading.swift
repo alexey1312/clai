@@ -185,8 +185,13 @@ extension Config {
     }
 
     /// Create a code snippet showing the error location
+    /// - Parameters:
+    ///   - lines: Array of source file lines
+    ///   - line: 1-based line number where error occurred
+    ///   - column: Column position of the error
+    /// - Returns: Formatted snippet with line numbers and caret marker, or empty string if line is out of bounds
     private static func createSnippet(lines: [String], line: Int, column: Int) -> String {
-        // Yams uses 1-based line numbers
+        // Convert 1-based line number to 0-based array index
         let lineIndex = line - 1
         guard lineIndex >= 0, lineIndex < lines.count else { return "" }
 
@@ -258,7 +263,7 @@ extension Config {
         do {
             yamlString = try encoder.encode(self)
         } catch {
-            throw ConfigError.fileCreationFailed(path: fileURL.path, underlying: error)
+            throw ConfigError.yamlEncodingFailed(underlying: error)
         }
 
         do {
