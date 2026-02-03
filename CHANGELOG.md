@@ -2,6 +2,153 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-02-03
+
+### Other
+
+- Parallelize model discovery in ModelsManager 
+
+* perf(core): parallelize model discovery in ModelsManager
+
+- Optimize `clai models` and `clai models list` by running MLX and Ollama model discovery concurrently using `async let`.
+- This reduces the latency of these commands by overlapping file system I/O (MLX) with network checks (Ollama).
+- Fixed precedence issue with await and method chaining.
+
+Co-authored-by: alexey1312 <36570774+alexey1312@users.noreply.github.com>
+
+* perf(core): parallelize model discovery in ModelsManager
+
+- Optimize `clai models` and `clai models list` by running MLX and Ollama model discovery concurrently using `async let`.
+- This reduces the latency of these commands by overlapping file system I/O (MLX) with network checks (Ollama).
+- Fixed precedence issue and linter `hoistAwait` violation.
+
+Co-authored-by: alexey1312 <36570774+alexey1312@users.noreply.github.com>
+
+* perf(core): parallelize model discovery in ModelsManager
+
+- Optimize `clai models` and `clai models list` by running MLX and Ollama model discovery concurrently using `async let`.
+- This reduces the latency of these commands by overlapping file system I/O (MLX) with network checks (Ollama).
+- Fixed linter errors `hoistAwait` and `docComments` encountered in CI.
+
+Co-authored-by: alexey1312 <36570774+alexey1312@users.noreply.github.com>
+
+* chore: update tools
+
+* fix(ci): disable docComments and wrapPropertyBodies rules
+
+These rules appear to have different defaults between local and CI
+SwiftFormat installations, causing formatting check failures.
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+
+---------
+
+Co-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>
+Co-authored-by: Claude Opus 4.5 <noreply@anthropic.com> by @alexey1312 in [#57](https://github.com/alexey1312/clai/pull/57)
+
+- Cache Ollama availability check to optimize discovery performance 
+
+* perf(providers): cache Ollama availability check
+
+- Implements caching for `OllamaChecker.isAvailable` with a 5-second TTL.
+- Reduces redundant network requests to `localhost:11434` during provider discovery.
+- Significantly improves performance for interactive sessions (e.g., `clai chat`) and scenarios where Ollama is unavailable (avoiding connection timeouts).
+- Uses `NSLock` and `nonisolated(unsafe)` to ensure thread safety and Swift 6 concurrency compliance.
+
+Co-authored-by: alexey1312 <36570774+alexey1312@users.noreply.github.com>
+
+* style(providers): fix modifier order in OllamaChecker
+
+- Reorders `nonisolated(unsafe) private static` to `private static nonisolated(unsafe)` to satisfy SwiftFormat linting rules.
+- Fixes CI failure `(modifierOrder) Use consistent ordering for member modifiers`.
+
+Co-authored-by: alexey1312 <36570774+alexey1312@users.noreply.github.com>
+
+* style(providers): fix modifier order (private nonisolated(unsafe) static)
+
+- Reordered modifiers in `OllamaChecker.swift` to `private nonisolated(unsafe) static` to comply with SwiftFormat rules enforced in CI.
+- Fixes `(modifierOrder) Use consistent ordering for member modifiers` lint error.
+
+Co-authored-by: alexey1312 <36570774+alexey1312@users.noreply.github.com>
+
+* refactor: use actor-based caching for availability check
+
+Replace NSLock-based cache with an actor to improve concurrency safety
+and simplify code.
+
+* style(history): fix wrapPropertyBodies lint errors
+
+- Expanded single-line property bodies in `HistoryTypes.swift` and `HistoryIndexer.swift` to multiple lines.
+- Satisfies strict SwiftFormat configuration in CI (`wrapPropertyBodies`).
+
+Co-authored-by: alexey1312 <36570774+alexey1312@users.noreply.github.com>
+
+---------
+
+Co-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com> by @alexey1312 in [#64](https://github.com/alexey1312/clai/pull/64)
+
+- Fix config provider selection and improve error handling 
+
+* feat: enhance provider config and caching logic
+
+Load and utilize additional configuration settings for provider management,
+enabling a customizable fallback chain. Ensure that ProviderManager
+considers user-defined provider preferences and defaults when constructing the
+chain. Improve caching mechanisms for OllamaChecker using concurrency-safe
+access with NSLock, optimizing network request handling. These updates
+enhance configurability and efficiency, aligning better with user
+requirements and system performance goals.
+
+* fix(config): improve error handling for config loading
+
+Refactor Config.load() to throw typed errors instead of silently
+returning defaults. Create default config file automatically if
+missing. Add ConfigError enum with user-friendly error messages
+including YAML syntax error location with code snippets.
+
+Update ClaiEngine init to propagate config errors and make all
+command entry points use try with ClaiEngine initialization.
+
+* fix: after review by @alexey1312 in [#66](https://github.com/alexey1312/clai/pull/66)
+
+
+### Performance
+
+- **core**: Parallelize prompt generation and provider discovery  by @google-labs-jules[bot] in [#48](https://github.com/alexey1312/clai/pull/48)
+
+- **providers**: Parallelize availability checks with lazy instantiation  by @google-labs-jules[bot] in [#51](https://github.com/alexey1312/clai/pull/51)
+
+- **cache**: Delay expiration cleanup on startup  by @alexey1312 in [#53](https://github.com/alexey1312/clai/pull/53)
+
+- **context**: Optimize tldr check in ContextGatherer  by @alexey1312 in [#55](https://github.com/alexey1312/clai/pull/55)
+
+- **core**: Parallelize MLX model discovery  by @alexey1312 in [#59](https://github.com/alexey1312/clai/pull/59)
+
+- **core**: Concurrent help command context gathering  by @alexey1312 in [#61](https://github.com/alexey1312/clai/pull/61)
+
+- **providers**: Lazily initialize platform and MLX checks  by @alexey1312 in [#63](https://github.com/alexey1312/clai/pull/63)
+
+- **cache**: Optimize Ollama provider availability check  by @alexey1312 in [#65](https://github.com/alexey1312/clai/pull/65)
+
+
+### Refactor
+
+- **ui**: Update Noora integration with interactive prompts  by @alexey1312 in [#49](https://github.com/alexey1312/clai/pull/49)
+
+- **ui**: Extract MarkdownRenderer from TerminalUI by @alexey1312
+
+- Remove Linux-specific conditions and improve table rendering by @alexey1312
+
+
+### Styling
+
+- **ui**: Improve nested list rendering and coloring  by @google-labs-jules[bot] in [#47](https://github.com/alexey1312/clai/pull/47)
+
+- **ui**: Add markdown table support by @google-labs-jules[bot]
+
+- **ui**: Improve spinner feedback with success/failure states  by @alexey1312 in [#54](https://github.com/alexey1312/clai/pull/54)
+
+
 ## [1.1.2] - 2026-01-24
 
 ### Miscellaneous Tasks
