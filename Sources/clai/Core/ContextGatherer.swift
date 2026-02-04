@@ -55,7 +55,7 @@ final class ContextGatherer: Sendable {
         return try await runCommand("tldr \(baseCommand)")
     }
 
-    private func runCommand(_ command: String) async throws -> String {
+    private func runCommand(_ command: String, limit: Int = 100_000) async throws -> String {
         let process = Process()
         let pipe = Pipe()
 
@@ -66,19 +66,39 @@ final class ContextGatherer: Sendable {
 
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
-                process.terminationHandler = { process in
-                    // Read data synchronously since process has terminated
-                    let data = (try? pipe.fileHandleForReading.readToEnd()) ?? Data()
+                let data = LockedData()
 
-                    guard let output = String(data: data, encoding: .utf8) else {
+                // Read continuously to avoid deadlock and enforce limit
+                pipe.fileHandleForReading.readabilityHandler = { fh in
+                    let chunk = fh.availableData
+                    if chunk.isEmpty { return }
+
+                    data.append(chunk)
+
+                    if data.count > limit {
+                        // Stop reading and terminate process if limit exceeded
+                        pipe.fileHandleForReading.readabilityHandler = nil
+                        process.terminate()
+                    }
+                }
+
+                process.terminationHandler = { process in
+                    // Ensure reading is stopped
+                    pipe.fileHandleForReading.readabilityHandler = nil
+
+                    // Retrieve collected data
+                    let outputData = data.value
+
+                    guard let output = String(data: outputData, encoding: .utf8) else {
                         continuation.resume(throwing: ClaiError.commandFailed(command))
                         return
                     }
 
-                    if process.terminationStatus != 0 {
-                        continuation.resume(throwing: ClaiError.commandFailed(command))
-                    } else {
+                    // If terminated due to limit (SIGTERM/15) or successful but truncated
+                    if process.terminationStatus == 0 || outputData.count > limit {
                         continuation.resume(returning: output.trimmingCharacters(in: .whitespacesAndNewlines))
+                    } else {
+                        continuation.resume(throwing: ClaiError.commandFailed(command))
                     }
                 }
 
@@ -90,6 +110,30 @@ final class ContextGatherer: Sendable {
             }
         } onCancel: {
             process.terminate()
+        }
+    }
+
+    /// Thread-safe data buffer
+    private final class LockedData: @unchecked Sendable {
+        private var _data = Data()
+        private let lock = NSLock()
+
+        var count: Int {
+            lock.lock()
+            defer { lock.unlock() }
+            return _data.count
+        }
+
+        var value: Data {
+            lock.lock()
+            defer { lock.unlock() }
+            return _data
+        }
+
+        func append(_ data: Data) {
+            lock.lock()
+            defer { lock.unlock() }
+            _data.append(data)
         }
     }
 }
