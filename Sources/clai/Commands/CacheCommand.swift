@@ -1,7 +1,7 @@
 import ArgumentParser
 import Foundation
 
-struct CacheCommand: ParsableCommand {
+struct CacheCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "cache",
         abstract: "Manage response cache",
@@ -11,28 +11,28 @@ struct CacheCommand: ParsableCommand {
 }
 
 extension CacheCommand {
-    struct ClearSubcommand: ParsableCommand {
+    struct ClearSubcommand: AsyncParsableCommand {
         static let configuration = CommandConfiguration(
             commandName: "clear",
             abstract: "Clear all cached responses"
         )
 
-        mutating func run() throws {
+        mutating func run() async throws {
             let cache = try ResponseCache()
-            try cache.clearAll()
+            try await cache.clearAll()
             print("Cache cleared")
         }
     }
 
-    struct StatsSubcommand: ParsableCommand {
+    struct StatsSubcommand: AsyncParsableCommand {
         static let configuration = CommandConfiguration(
             commandName: "stats",
             abstract: "Show cache statistics"
         )
 
-        mutating func run() throws {
+        mutating func run() async throws {
             let cache = try ResponseCache()
-            let stats = try cache.stats()
+            let stats = try await cache.stats()
 
             print("Cache Statistics")
             print("  Entries: \(stats.count)")
