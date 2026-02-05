@@ -20,14 +20,31 @@ final class ResponseCache: @unchecked Sendable {
     /// Default TTL of 7 days
     private let ttlDays: Int = 7
 
+    /// Background task for database initialization
+    private var dbInitTask: Task<Void, Error>!
+
     init() throws {
+        // Start database initialization in background
+        dbInitTask = Task { [weak self] in
+            guard let self else { return }
+            try _initDatabaseAndSet()
+        }
+
         // Optimize startup: Run cleanup in background
         // This avoids blocking ClaiEngine initialization on DB operations
         Task { [weak self] in
             // Delay cleanup to ensure it doesn't contend with the first request
             try? await Task.sleep(for: .seconds(2))
-            try? self?.cleanupExpired()
+            try? await self?.cleanupExpired()
         }
+    }
+
+    /// Initialize database and set property safely
+    private func _initDatabaseAndSet() throws {
+        let connection = try _initDatabase()
+        lock.lock()
+        defer { lock.unlock() }
+        _database = connection
     }
 
     /// Get cache directory path
@@ -100,8 +117,11 @@ final class ResponseCache: @unchecked Sendable {
     }
 
     /// Look up a cached response
-    func get(key: String) throws -> CachedResponse? {
-        try withConnection { connection in
+    func get(key: String) async throws -> CachedResponse? {
+        // Ensure database is initialized
+        _ = try await dbInitTask.value
+
+        return try withConnection { connection in
             let query = responses.filter(cacheKey == key)
 
             guard let row = try connection.pluck(query) else {
@@ -132,7 +152,10 @@ final class ResponseCache: @unchecked Sendable {
     }
 
     /// Store a response in the cache
-    func set(key: String, response responseText: String, provider providerName: String) throws {
+    func set(key: String, response responseText: String, provider providerName: String) async throws {
+        // Ensure database is initialized
+        _ = try await dbInitTask.value
+
         try withConnection { connection in
             let insert = responses.insert(
                 or: .replace,
@@ -146,7 +169,10 @@ final class ResponseCache: @unchecked Sendable {
     }
 
     /// Delete a cached response
-    func delete(key: String) throws {
+    func delete(key: String) async throws {
+        // Ensure database is initialized
+        _ = try await dbInitTask.value
+
         try withConnection { connection in
             try delete(key: key, connection: connection)
         }
@@ -159,7 +185,10 @@ final class ResponseCache: @unchecked Sendable {
     }
 
     /// Clean up expired entries
-    func cleanupExpired() throws {
+    func cleanupExpired() async throws {
+        // Ensure database is initialized
+        _ = try await dbInitTask.value
+
         try withConnection { connection in
             guard let expirationDate = Calendar.current.date(byAdding: .day, value: -ttlDays, to: Date()) else {
                 return // Cannot calculate expiration date, skip cleanup
@@ -170,15 +199,21 @@ final class ResponseCache: @unchecked Sendable {
     }
 
     /// Clear all cached responses
-    func clearAll() throws {
+    func clearAll() async throws {
+        // Ensure database is initialized
+        _ = try await dbInitTask.value
+
         try withConnection { connection in
             try connection.run(responses.delete())
         }
     }
 
     /// Get cache statistics
-    func stats() throws -> CacheStats {
-        try withConnection { connection in
+    func stats() async throws -> CacheStats {
+        // Ensure database is initialized
+        _ = try await dbInitTask.value
+
+        return try withConnection { connection in
             let count = try connection.scalar(responses.count)
             let databasePath = Self.cacheDirectory.appendingPathComponent("clai_cache.sqlite")
 

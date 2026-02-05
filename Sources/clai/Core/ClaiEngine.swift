@@ -179,10 +179,10 @@ final class ClaiEngine: Sendable {
     }
 
     /// Try to get cached response, logging errors in verbose mode
-    private func getCachedResponse(key: String) -> CachedResponse? {
+    private func getCachedResponse(key: String) async -> CachedResponse? {
         guard let cache else { return nil }
         do {
-            return try cache.get(key: key)
+            return try await cache.get(key: key)
         } catch {
             if options.verbose {
                 terminal.showWarning("Cache read failed: \(error.localizedDescription)")
@@ -192,10 +192,10 @@ final class ClaiEngine: Sendable {
     }
 
     /// Try to cache response, logging errors in verbose mode
-    private func cacheResponse(key: String, response: String, provider: String) {
+    private func cacheResponse(key: String, response: String, provider: String) async {
         guard let cache else { return }
         do {
-            try cache.set(key: key, response: response, provider: provider)
+            try await cache.set(key: key, response: response, provider: provider)
         } catch {
             if options.verbose {
                 terminal.showWarning("Cache write failed: \(error.localizedDescription)")
@@ -209,7 +209,7 @@ final class ClaiEngine: Sendable {
         promptProvider: @Sendable () async throws -> String
     ) async throws -> GenerationResult {
         // Check cache first (if not disabled)
-        if let cacheKey, let cached = getCachedResponse(key: cacheKey) {
+        if let cacheKey, let cached = await getCachedResponse(key: cacheKey) {
             if options.verbose {
                 terminal.showInfo("Using cached response from \(cached.provider)")
             }
@@ -259,7 +259,7 @@ final class ClaiEngine: Sendable {
 
         // Cache the response if caching is enabled
         if let cacheKey {
-            cacheResponse(key: cacheKey, response: response, provider: provider.name)
+            await cacheResponse(key: cacheKey, response: response, provider: provider.name)
         }
 
         return GenerationResult(content: response, wasStreamed: wasStreamed, providerName: provider.name)
