@@ -36,6 +36,14 @@ enum OllamaChecker {
     private static let _cacheLock = NSLock()
     private static let _cacheTTL: TimeInterval = 5.0 // 5 seconds
 
+    // Dedicated session with short timeout for availability checks
+    private static let checkSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 2.0 // Fail fast if unresponsive
+        config.timeoutIntervalForResource = 5.0
+        return URLSession(configuration: config)
+    }()
+
     /// Check if Ollama is running and accessible
     static func isAvailable(host: String = defaultHost) async -> Bool {
         // Check cache first
@@ -59,7 +67,7 @@ enum OllamaChecker {
             }
 
             do {
-                let (data, response) = try await URLSession.shared.data(from: url)
+                let (data, response) = try await checkSession.data(from: url)
                 guard let httpResponse = response as? HTTPURLResponse else {
                     return (false, nil)
                 }
@@ -117,7 +125,7 @@ enum OllamaChecker {
         }
 
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
+            let (data, _) = try await checkSession.data(from: url)
             let response = try JSONDecoder().decode(OllamaTagsResponse.self, from: data)
             let models = response.models.map(\.name)
 
@@ -144,7 +152,7 @@ enum OllamaChecker {
         }
 
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
+            let (data, _) = try await checkSession.data(from: url)
             let response = try JSONDecoder().decode(OllamaTagsResponse.self, from: data)
 
             return response.models.map { model in
