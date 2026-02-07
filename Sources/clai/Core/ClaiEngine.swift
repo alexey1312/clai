@@ -208,6 +208,10 @@ final class ClaiEngine: Sendable {
         loadingMessage: String = "Generating response...",
         promptProvider: @Sendable () async throws -> String
     ) async throws -> GenerationResult {
+        // Start availability checks concurrently
+        // Note: candidateProvidersStream() launches background tasks immediately
+        let candidatesStream = providerManager.candidateProvidersStream()
+
         // Check cache first (if not disabled)
         if let cacheKey, let cached = await getCachedResponse(key: cacheKey) {
             if options.verbose {
@@ -216,10 +220,7 @@ final class ClaiEngine: Sendable {
             return GenerationResult(content: cached.response, wasStreamed: false, providerName: cached.provider)
         }
 
-        // Generate prompt and start availability checks concurrently
-        // Note: candidateProvidersStream() launches background tasks immediately
-        let candidatesStream = providerManager.candidateProvidersStream()
-
+        // Generate prompt
         let prompt = try await promptProvider()
 
         // Instantiate provider after concurrent phases are done
