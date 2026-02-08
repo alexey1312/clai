@@ -28,7 +28,7 @@ enum OllamaChecker {
         let host: String
         let timestamp: Date
         let isAvailable: Bool
-        let models: [String]?
+        let models: [OllamaModelInfo]?
     }
 
     // Using nonisolated(unsafe) to satisfy strict concurrency with NSLock
@@ -61,7 +61,7 @@ enum OllamaChecker {
             return result
         }
 
-        let (isAvailable, models): (Bool, [String]?) = await {
+        let (isAvailable, models): (Bool, [OllamaModelInfo]?) = await {
             guard let url = URL(string: "\(host)/api/tags") else {
                 return (false, nil)
             }
@@ -73,12 +73,20 @@ enum OllamaChecker {
                 }
 
                 let isUp = httpResponse.statusCode == 200
-                var fetchedModels: [String]?
+                var fetchedModels: [OllamaModelInfo]?
 
                 if isUp {
                     // Opportunistically decode models to populate cache
                     if let tagsResponse = try? JSONDecoder().decode(OllamaTagsResponse.self, from: data) {
-                        fetchedModels = tagsResponse.models.map(\.name)
+                        fetchedModels = tagsResponse.models.map { model in
+                            let sizeBytes = Int64(model.size ?? 0)
+                            return OllamaModelInfo(
+                                name: model.name,
+                                sizeBytes: sizeBytes,
+                                sizeFormatted: ByteFormatter.format(sizeBytes),
+                                digest: model.digest ?? ""
+                            )
+                        }
                     }
                 }
 
@@ -111,6 +119,58 @@ enum OllamaChecker {
                Date().timeIntervalSince(cache.timestamp) < _cacheTTL,
                let models = cache.models
             {
+                return models.map(\.name)
+            }
+            return nil
+        }
+
+        if let models = cachedModels {
+            return models
+        }
+
+        guard let url = URL(string: "\(host)/api/tags") else {
+            return []
+        }
+
+        do {
+            let (data, _) = try await checkSession.data(from: url)
+            let response = try JSONDecoder().decode(OllamaTagsResponse.self, from: data)
+
+            let detailedModels: [OllamaModelInfo] = response.models.map { model in
+                let sizeBytes = Int64(model.size ?? 0)
+                return OllamaModelInfo(
+                    name: model.name,
+                    sizeBytes: sizeBytes,
+                    sizeFormatted: ByteFormatter.format(sizeBytes),
+                    digest: model.digest ?? ""
+                )
+            }
+
+            // Update cache with fresh models
+            _cacheLock.withLock {
+                _cachedAvailability = AvailabilityCache(
+                    host: host, timestamp: Date(), isAvailable: true, models: detailedModels
+                )
+            }
+
+            return detailedModels.map(\.name)
+        } catch {
+            #if DEBUG
+                fputs("OllamaChecker.availableModels: \(error.localizedDescription)\n", stderr)
+            #endif
+            return []
+        }
+    }
+
+    /// Get detailed information about available models
+    static func availableModelsDetailed(host: String = defaultHost) async -> [OllamaModelInfo] {
+        // Check cache first
+        let cachedModels: [OllamaModelInfo]? = _cacheLock.withLock {
+            if let cache = _cachedAvailability,
+               cache.host == host,
+               Date().timeIntervalSince(cache.timestamp) < _cacheTTL,
+               let models = cache.models
+            {
                 return models
             }
             return nil
@@ -127,37 +187,9 @@ enum OllamaChecker {
         do {
             let (data, _) = try await checkSession.data(from: url)
             let response = try JSONDecoder().decode(OllamaTagsResponse.self, from: data)
-            let models = response.models.map(\.name)
 
-            // Update cache with fresh models
-            _cacheLock.withLock {
-                _cachedAvailability = AvailabilityCache(
-                    host: host, timestamp: Date(), isAvailable: true, models: models
-                )
-            }
-
-            return models
-        } catch {
-            #if DEBUG
-                fputs("OllamaChecker.availableModels: \(error.localizedDescription)\n", stderr)
-            #endif
-            return []
-        }
-    }
-
-    /// Get detailed information about available models
-    static func availableModelsDetailed(host: String = defaultHost) async -> [OllamaModelInfo] {
-        guard let url = URL(string: "\(host)/api/tags") else {
-            return []
-        }
-
-        do {
-            let (data, _) = try await checkSession.data(from: url)
-            let response = try JSONDecoder().decode(OllamaTagsResponse.self, from: data)
-
-            return response.models.map { model in
+            let detailedModels: [OllamaModelInfo] = response.models.map { model in
                 let sizeBytes = Int64(model.size ?? 0)
-
                 return OllamaModelInfo(
                     name: model.name,
                     sizeBytes: sizeBytes,
@@ -165,6 +197,15 @@ enum OllamaChecker {
                     digest: model.digest ?? ""
                 )
             }
+
+            // Update cache with fresh models
+            _cacheLock.withLock {
+                _cachedAvailability = AvailabilityCache(
+                    host: host, timestamp: Date(), isAvailable: true, models: detailedModels
+                )
+            }
+
+            return detailedModels
         } catch {
             #if DEBUG
                 fputs("OllamaChecker.availableModelsDetailed: \(error.localizedDescription)\n", stderr)
