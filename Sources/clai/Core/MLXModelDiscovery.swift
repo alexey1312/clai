@@ -98,14 +98,15 @@ enum MLXModelDiscovery {
 
             return await withTaskGroup(of: MLXModelInfo?.self) { group in
                 for url in contents {
+                    let dirName = url.lastPathComponent
+
+                    // Only look for mlx-community models.
+                    guard dirName.hasPrefix("models--mlx-community--") else {
+                        continue
+                    }
+
                     group.addTask {
                         let fileManager = FileManager.default
-                        let dirName = url.lastPathComponent
-
-                        // Only look for mlx-community models.
-                        guard dirName.hasPrefix("models--mlx-community--") else {
-                            return nil
-                        }
 
                         // Parse model ID from directory name
                         guard let modelId = parseModelId(from: dirName) else {
@@ -170,14 +171,15 @@ enum MLXModelDiscovery {
 
             return await withTaskGroup(of: MLXModelInfo?.self) { group in
                 for url in contents {
+                    let dirName = url.lastPathComponent
+
+                    // Skip hidden directories
+                    guard !dirName.hasPrefix(".") else {
+                        continue
+                    }
+
                     group.addTask {
                         let fileManager = FileManager.default
-                        let dirName = url.lastPathComponent
-
-                        // Skip hidden directories
-                        guard !dirName.hasPrefix(".") else {
-                            return nil
-                        }
 
                         // Check if this looks like a model directory (has config.json or model files)
                         let configURL = url.appendingPathComponent("config.json")
