@@ -85,7 +85,8 @@ final class ProviderManager: Sendable {
 
             // Check providers sequentially to save resources.
             // Since most providers are local (Foundation, MLX) or fast (API keys),
-            // parallel execution is unnecessary and wasteful (e.g. starting network requests for Ollama when MLX is available).
+            // parallel execution is unnecessary and wasteful
+            // (e.g. starting network requests for Ollama when MLX is available).
             let chain = self.fallbackChain
             let task = Task {
                 for provider in chain {
