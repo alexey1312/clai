@@ -83,23 +83,16 @@ final class ProviderManager: Sendable {
                 return
             }
 
-            // Check providers in parallel to hide latency (especially for network checks like Ollama)
-            // Only check providers that are in the fallback chain
+            // Check providers sequentially to save resources.
+            // Since most providers are local (Foundation, MLX) or fast (API keys),
+            // parallel execution is unnecessary and wasteful (e.g. starting network requests for Ollama when MLX is available).
             let chain = self.fallbackChain
-            var tasks: [Provider: Task<Bool, Never>] = [:]
-            for provider in chain {
-                tasks[provider] = Task { await self.isAvailable(provider) }
-            }
-
             let task = Task {
-                // Ensure we cancel any unused tasks when we exit
-                defer { tasks.values.forEach { $0.cancel() } }
-
-                for providerType in chain {
+                for provider in chain {
                     if Task.isCancelled { break }
 
-                    if let task = tasks[providerType], await task.value {
-                        continuation.yield(providerType)
+                    if await self.isAvailable(provider) {
+                        continuation.yield(provider)
                     }
                 }
                 continuation.finish()
