@@ -60,7 +60,10 @@ final class TerminalUI: @unchecked Sendable {
             return result
         } catch {
             await spinner.stop()
-            print("\r\(Theme.error)✖\(Theme.reset) \(message)")
+            // Don't show failure for cancellations (e.g. cache hit during prompt generation)
+            if !(error is CancellationError) {
+                print("\r\(Theme.error)✖\(Theme.reset) \(message)")
+            }
             flushStdout()
             throw error
         }

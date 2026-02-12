@@ -212,6 +212,11 @@ final class ClaiEngine: Sendable {
         // Note: candidateProvidersStream() launches background tasks immediately
         let candidatesStream = providerManager.candidateProvidersStream()
 
+        // Start prompt generation concurrently with cache lookup/initialization
+        // This overlaps the latency of gathering context (e.g. man pages) with
+        // DB initialization and cache check. If cache hits, this task is cancelled.
+        async let promptTask = promptProvider()
+
         // Check cache first (if not disabled)
         if let cacheKey, let cached = await getCachedResponse(key: cacheKey) {
             if options.verbose {
@@ -221,7 +226,7 @@ final class ClaiEngine: Sendable {
         }
 
         // Generate prompt
-        let prompt = try await promptProvider()
+        let prompt = try await promptTask
 
         // Instantiate provider after concurrent phases are done
         // This avoids UI conflicts if instantiation triggers a download (which outputs to terminal)
