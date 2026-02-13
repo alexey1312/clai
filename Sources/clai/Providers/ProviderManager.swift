@@ -83,17 +83,40 @@ final class ProviderManager: Sendable {
                 return
             }
 
-            // Check providers sequentially to save resources.
-            // Since most providers are local (Foundation, MLX) or fast (API keys),
-            // parallel execution is unnecessary and wasteful
-            // (e.g. starting network requests for Ollama when MLX is available).
+            // Check providers in parallel to minimize latency.
+            // We use a task group to run checks concurrently, but yield results
+            // in the original priority order defined by fallbackChain.
             let chain = self.fallbackChain
             let task = Task {
-                for provider in chain {
-                    if Task.isCancelled { break }
+                await withTaskGroup(of: (Int, Bool).self) { group in
+                    for (index, provider) in chain.enumerated() {
+                        group.addTask {
+                            let available = await self.isAvailable(provider)
+                            return (index, available)
+                        }
+                    }
 
-                    if await self.isAvailable(provider) {
-                        continuation.yield(provider)
+                    // Buffer results to yield in order
+                    var results: [Int: Bool] = [:]
+                    var nextIndex = 0
+
+                    for await (index, available) in group {
+                        if Task.isCancelled { break }
+
+                        results[index] = available
+
+                        // Try to yield available providers in order
+                        while let isAvailable = results[nextIndex] {
+                            if isAvailable {
+                                continuation.yield(chain[nextIndex])
+                            }
+                            results.removeValue(forKey: nextIndex)
+                            nextIndex += 1
+
+                            if nextIndex >= chain.count {
+                                break
+                            }
+                        }
                     }
                 }
                 continuation.finish()
