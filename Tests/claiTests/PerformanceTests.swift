@@ -17,4 +17,16 @@ final class PerformanceTests: XCTestCase {
         let expected2 = "93e5b8a4cb232d510401db023eaf41e4c8f896c6d7fa3f5d88673732f6767bfd"
         XCTAssertEqual(input2.sha256Hash, expected2)
     }
+
+    func testByteFormatterPerformance() {
+        let iterations = 100_000
+        let bytes: Int64 = 1_234_567_890
+
+        // Measure time block
+        measure {
+            for _ in 0..<iterations {
+                _ = ByteFormatter.format(bytes)
+            }
+        }
+    }
 }
