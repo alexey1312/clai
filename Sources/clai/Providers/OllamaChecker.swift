@@ -61,49 +61,31 @@ enum OllamaChecker {
             return result
         }
 
-        let (isAvailable, models): (Bool, [OllamaModelInfo]?) = await {
-            guard let url = URL(string: "\(host)/api/tags") else {
-                return (false, nil)
+        let isAvailable = await {
+            guard let url = URL(string: "\(host)/") else {
+                return false
             }
 
             do {
-                let (data, response) = try await checkSession.data(from: url)
+                let (_, response) = try await checkSession.data(from: url)
                 guard let httpResponse = response as? HTTPURLResponse else {
-                    return (false, nil)
+                    return false
                 }
 
-                let isUp = httpResponse.statusCode == 200
-                var fetchedModels: [OllamaModelInfo]?
-
-                if isUp {
-                    // Opportunistically decode models to populate cache
-                    if let tagsResponse = try? JSONDecoder().decode(OllamaTagsResponse.self, from: data) {
-                        fetchedModels = tagsResponse.models.map { model in
-                            let sizeBytes = Int64(model.size ?? 0)
-                            return OllamaModelInfo(
-                                name: model.name,
-                                sizeBytes: sizeBytes,
-                                sizeFormatted: ByteFormatter.format(sizeBytes),
-                                digest: model.digest ?? ""
-                            )
-                        }
-                    }
-                }
-
-                return (isUp, fetchedModels)
+                return httpResponse.statusCode == 200
             } catch {
                 // Network errors are expected when Ollama isn't running
                 #if DEBUG
                     fputs("OllamaChecker: \(error.localizedDescription)\n", stderr)
                 #endif
-                return (false, nil)
+                return false
             }
         }()
 
         // Update cache
         _cacheLock.withLock {
             _cachedAvailability = AvailabilityCache(
-                host: host, timestamp: Date(), isAvailable: isAvailable, models: models
+                host: host, timestamp: Date(), isAvailable: isAvailable, models: nil
             )
         }
 
