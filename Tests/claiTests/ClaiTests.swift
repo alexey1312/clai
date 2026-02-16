@@ -53,7 +53,7 @@ struct PlatformDetectionTests {
 struct PromptBuildingTests {
     @Test("PromptBuilder creates explain prompt")
     func explainPrompt() {
-        let context = CommandContext(helpOutput: "Usage: git", manPageContent: nil, tldrContent: nil)
+        let context = CommandContext(helpOutput: "Usage: git", manPageContent: nil)
         let prompt = PromptBuilder.buildExplainPrompt(command: "git", context: context)
         #expect(prompt.contains("git"))
         #expect(prompt.lowercased().contains("explain"))
@@ -67,7 +67,7 @@ struct PromptBuildingTests {
 
     @Test("PromptBuilder creates examples prompt")
     func examplesPrompt() {
-        let context = CommandContext(helpOutput: "tar help", manPageContent: nil, tldrContent: nil)
+        let context = CommandContext(helpOutput: "tar help", manPageContent: nil)
         let prompt = PromptBuilder.buildExamplesPrompt(command: "tar", context: context)
         #expect(prompt.contains("tar"))
         #expect(prompt.lowercased().contains("example"))
@@ -83,7 +83,7 @@ struct PromptBuildingTests {
 
     @Test("PromptBuilder handles empty context")
     func emptyContext() {
-        let context = CommandContext(helpOutput: nil, manPageContent: nil, tldrContent: nil)
+        let context = CommandContext(helpOutput: nil, manPageContent: nil)
         let prompt = PromptBuilder.buildExplainPrompt(command: "unknown", context: context)
         #expect(prompt.contains("unknown"))
     }

@@ -76,7 +76,7 @@ final class ClaiEngine: Sendable {
                 loadingMessage: "Generating explanation..."
             ) {
                 let context = try await self.terminal.withSpinner("Analyzing command...") {
-                    try await self.contextGatherer.gather(for: command)
+                    try await self.contextGatherer.gather(for: command, includeManPage: true)
                 }
 
                 // Smart fallback: If no documentation found, treat as natural language/topic request
@@ -124,7 +124,7 @@ final class ClaiEngine: Sendable {
             loadingMessage: "Creating examples..."
         ) {
             let context = try await self.terminal.withSpinner("Generating examples...") {
-                try await self.contextGatherer.gather(for: command)
+                try await self.contextGatherer.gather(for: command, includeManPage: false)
             }
             return PromptBuilder.buildExamplesPrompt(command: command, context: context)
         }

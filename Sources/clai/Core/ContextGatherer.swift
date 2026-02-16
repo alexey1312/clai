@@ -4,26 +4,28 @@ import Foundation
 struct CommandContext: Sendable {
     let helpOutput: String?
     let manPageContent: String?
-    let tldrContent: String?
 
     var isEmpty: Bool {
-        helpOutput == nil && manPageContent == nil && tldrContent == nil
+        helpOutput == nil && manPageContent == nil
     }
 }
 
 /// Gathers context about commands from help, man pages, and tldr
 final class ContextGatherer: Sendable {
     /// Gather all available context for a command
-    func gather(for command: String) async throws -> CommandContext {
+    func gather(for command: String, includeManPage: Bool = true) async throws -> CommandContext {
         async let helpOutput = getHelpOutput(for: command)
-        async let manContent = getManPage(for: command)
-        async let tldrContent = getTldrPage(for: command)
+        async let manContent = getManPageIfNeeded(command, include: includeManPage)
 
         return await CommandContext(
             helpOutput: try? helpOutput,
-            manPageContent: try? manContent,
-            tldrContent: try? tldrContent
+            manPageContent: manContent
         )
+    }
+
+    private func getManPageIfNeeded(_ command: String, include: Bool) async -> String? {
+        guard include else { return nil }
+        return try? await getManPage(for: command)
     }
 
     /// Get --help output for a command
@@ -47,12 +49,6 @@ final class ContextGatherer: Sendable {
     func getManPage(for command: String) async throws -> String {
         let baseCommand = command.split(separator: " ").first.map(String.init) ?? command
         return try await runCommand("set -o pipefail; man \(baseCommand) | col -b")
-    }
-
-    /// Get tldr page if available
-    func getTldrPage(for command: String) async throws -> String? {
-        let baseCommand = command.split(separator: " ").first.map(String.init) ?? command
-        return try await runCommand("tldr \(baseCommand)")
     }
 
     private func runCommand(_ command: String, limit: Int = 100_000) async throws -> String {
