@@ -84,8 +84,10 @@ enum OllamaChecker {
 
         // Update cache
         _cacheLock.withLock {
+            // Preserve existing models if they belong to the same host
+            let existingModels = _cachedAvailability?.host == host ? _cachedAvailability?.models : nil
             _cachedAvailability = AvailabilityCache(
-                host: host, timestamp: Date(), isAvailable: isAvailable, models: nil
+                host: host, timestamp: Date(), isAvailable: isAvailable, models: existingModels
             )
         }
 
@@ -94,54 +96,7 @@ enum OllamaChecker {
 
     /// Get list of available models (names only)
     static func availableModels(host: String = defaultHost) async -> [String] {
-        // Check cache first
-        let cachedModels: [String]? = _cacheLock.withLock {
-            if let cache = _cachedAvailability,
-               cache.host == host,
-               Date().timeIntervalSince(cache.timestamp) < _cacheTTL,
-               let models = cache.models
-            {
-                return models.map(\.name)
-            }
-            return nil
-        }
-
-        if let models = cachedModels {
-            return models
-        }
-
-        guard let url = URL(string: "\(host)/api/tags") else {
-            return []
-        }
-
-        do {
-            let (data, _) = try await checkSession.data(from: url)
-            let response = try JSONDecoder().decode(OllamaTagsResponse.self, from: data)
-
-            let detailedModels: [OllamaModelInfo] = response.models.map { model in
-                let sizeBytes = Int64(model.size ?? 0)
-                return OllamaModelInfo(
-                    name: model.name,
-                    sizeBytes: sizeBytes,
-                    sizeFormatted: ByteFormatter.format(sizeBytes),
-                    digest: model.digest ?? ""
-                )
-            }
-
-            // Update cache with fresh models
-            _cacheLock.withLock {
-                _cachedAvailability = AvailabilityCache(
-                    host: host, timestamp: Date(), isAvailable: true, models: detailedModels
-                )
-            }
-
-            return detailedModels.map(\.name)
-        } catch {
-            #if DEBUG
-                fputs("OllamaChecker.availableModels: \(error.localizedDescription)\n", stderr)
-            #endif
-            return []
-        }
+        await availableModelsDetailed(host: host).map(\.name)
     }
 
     /// Get detailed information about available models
