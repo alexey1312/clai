@@ -1,4 +1,5 @@
 import Crypto
+import Dispatch
 import Foundation
 
 @preconcurrency import SQLite
@@ -6,7 +7,8 @@ import Foundation
 /// SQLite-based response cache with TTL expiration
 final class ResponseCache: @unchecked Sendable {
     private var _database: Connection?
-    private let lock = NSLock()
+    // Serial queue for SQLite operations to avoid blocking Swift Concurrency pool
+    private let queue = DispatchQueue(label: "com.clai.response-cache", qos: .userInitiated)
 
     private let responses = Table("responses")
 
@@ -24,10 +26,10 @@ final class ResponseCache: @unchecked Sendable {
     private var dbInitTask: Task<Void, Error>!
 
     init() throws {
-        // Start database initialization in background
+        // Start database initialization in background on the serial queue
         dbInitTask = Task { [weak self] in
             guard let self else { return }
-            try _initDatabaseAndSet()
+            try await _initDatabaseAndSet()
         }
 
         // Optimize startup: Run cleanup in background
@@ -39,12 +41,19 @@ final class ResponseCache: @unchecked Sendable {
         }
     }
 
-    /// Initialize database and set property safely
-    private func _initDatabaseAndSet() throws {
-        let connection = try _initDatabase()
-        lock.lock()
-        defer { lock.unlock() }
-        _database = connection
+    /// Initialize database and set property safely on the queue
+    private func _initDatabaseAndSet() async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                do {
+                    let connection = try self._initDatabase()
+                    self._database = connection
+                    continuation.resume()
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
     }
 
     /// Get cache directory path
@@ -81,21 +90,30 @@ final class ResponseCache: @unchecked Sendable {
         return combined.sha256Hash
     }
 
-    /// Execute a block with the database connection
+    /// Execute a block with the database connection on the serial queue
     @discardableResult
-    private func withConnection<T>(_ block: (Connection) throws -> T) throws -> T {
-        lock.lock()
-        defer { lock.unlock() }
+    private func withConnection<T>(_ block: @Sendable @escaping (Connection) throws -> T) async throws -> T {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                do {
+                    let connection: Connection
+                    if let existing = self._database {
+                        connection = existing
+                    } else {
+                        // This should generally be handled by dbInitTask, but purely for safety
+                        // inside the queue to avoid race conditions if init failed or wasn't awaited properly
+                        // (though public methods await dbInitTask)
+                        connection = try self._initDatabase()
+                        self._database = connection
+                    }
 
-        let connection: Connection
-        if let existing = _database {
-            connection = existing
-        } else {
-            connection = try _initDatabase()
-            _database = connection
+                    let result = try block(connection)
+                    continuation.resume(returning: result)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
         }
-
-        return try block(connection)
     }
 
     private func _initDatabase() throws -> Connection {
@@ -121,31 +139,31 @@ final class ResponseCache: @unchecked Sendable {
         // Ensure database is initialized
         _ = try await dbInitTask.value
 
-        return try withConnection { connection in
-            let query = responses.filter(cacheKey == key)
+        return try await withConnection { connection in
+            let query = self.responses.filter(self.cacheKey == key)
 
             guard let row = try connection.pluck(query) else {
                 return nil
             }
 
-            let responseCreatedAt = row[createdAt]
+            let responseCreatedAt = row[self.createdAt]
             guard let expirationDate = Calendar.current.date(
-                byAdding: .day, value: ttlDays, to: responseCreatedAt
+                byAdding: .day, value: self.ttlDays, to: responseCreatedAt
             ) else {
                 // Date calculation failed - treat as expired
-                try delete(key: key, connection: connection)
+                try self.delete(key: key, connection: connection)
                 return nil
             }
 
             // Check if expired
             if Date() > expirationDate {
-                try delete(key: key, connection: connection)
+                try self.delete(key: key, connection: connection)
                 return nil
             }
 
             return CachedResponse(
-                response: row[response],
-                provider: row[provider],
+                response: row[self.response],
+                provider: row[self.provider],
                 createdAt: responseCreatedAt
             )
         }
@@ -156,13 +174,13 @@ final class ResponseCache: @unchecked Sendable {
         // Ensure database is initialized
         _ = try await dbInitTask.value
 
-        try withConnection { connection in
-            let insert = responses.insert(
+        try await withConnection { connection in
+            let insert = self.responses.insert(
                 or: .replace,
-                cacheKey <- key,
-                response <- responseText,
-                provider <- providerName,
-                createdAt <- Date()
+                self.cacheKey <- key,
+                self.response <- responseText,
+                self.provider <- providerName,
+                self.createdAt <- Date()
             )
             try connection.run(insert)
         }
@@ -173,12 +191,12 @@ final class ResponseCache: @unchecked Sendable {
         // Ensure database is initialized
         _ = try await dbInitTask.value
 
-        try withConnection { connection in
-            try delete(key: key, connection: connection)
+        try await withConnection { connection in
+            try self.delete(key: key, connection: connection)
         }
     }
 
-    // Internal helper that takes connection (caller must hold lock)
+    // Internal helper that takes connection (caller must be on queue)
     private func delete(key: String, connection: Connection) throws {
         let query = responses.filter(cacheKey == key)
         try connection.run(query.delete())
@@ -189,11 +207,11 @@ final class ResponseCache: @unchecked Sendable {
         // Ensure database is initialized
         _ = try await dbInitTask.value
 
-        try withConnection { connection in
-            guard let expirationDate = Calendar.current.date(byAdding: .day, value: -ttlDays, to: Date()) else {
+        try await withConnection { connection in
+            guard let expirationDate = Calendar.current.date(byAdding: .day, value: -self.ttlDays, to: Date()) else {
                 return // Cannot calculate expiration date, skip cleanup
             }
-            let expired = responses.filter(createdAt < expirationDate)
+            let expired = self.responses.filter(self.createdAt < expirationDate)
             try connection.run(expired.delete())
         }
     }
@@ -203,8 +221,8 @@ final class ResponseCache: @unchecked Sendable {
         // Ensure database is initialized
         _ = try await dbInitTask.value
 
-        try withConnection { connection in
-            try connection.run(responses.delete())
+        try await withConnection { connection in
+            try connection.run(self.responses.delete())
         }
     }
 
@@ -213,8 +231,8 @@ final class ResponseCache: @unchecked Sendable {
         // Ensure database is initialized
         _ = try await dbInitTask.value
 
-        return try withConnection { connection in
-            let count = try connection.scalar(responses.count)
+        return try await withConnection { connection in
+            let count = try connection.scalar(self.responses.count)
             let databasePath = Self.cacheDirectory.appendingPathComponent("clai_cache.sqlite")
 
             var sizeBytes: Int64 = 0
