@@ -140,37 +140,39 @@ final class ResponseCache: @unchecked Sendable {
         _ = try await dbInitTask.value
 
         return try await withConnection { connection in
-            let query = self.responses.filter(self.cacheKey == key)
+            guard let expirationDate = Calendar.current.date(
+                byAdding: .day, value: -self.ttlDays, to: Date()
+            ) else {
+                return nil
+            }
+
+            // Filter by key AND expiration date to avoid fetching expired content
+            let query = self.responses.filter(self.cacheKey == key && self.createdAt >= expirationDate)
 
             guard let row = try connection.pluck(query) else {
-                return nil
-            }
-
-            let responseCreatedAt = row[self.createdAt]
-            guard let expirationDate = Calendar.current.date(
-                byAdding: .day, value: self.ttlDays, to: responseCreatedAt
-            ) else {
-                // Date calculation failed - treat as expired
-                try self.delete(key: key, connection: connection)
-                return nil
-            }
-
-            // Check if expired
-            if Date() > expirationDate {
-                try self.delete(key: key, connection: connection)
                 return nil
             }
 
             return CachedResponse(
                 response: row[self.response],
                 provider: row[self.provider],
-                createdAt: responseCreatedAt
+                createdAt: row[self.createdAt]
             )
         }
     }
 
     /// Store a response in the cache
     func set(key: String, response responseText: String, provider providerName: String) async throws {
+        try await set(key: key, response: responseText, provider: providerName, createdAt: Date())
+    }
+
+    /// Internal set for testing with specific timestamp
+    internal func set(
+        key: String,
+        response responseText: String,
+        provider providerName: String,
+        createdAt date: Date
+    ) async throws {
         // Ensure database is initialized
         _ = try await dbInitTask.value
 
@@ -180,7 +182,7 @@ final class ResponseCache: @unchecked Sendable {
                 self.cacheKey <- key,
                 self.response <- responseText,
                 self.provider <- providerName,
-                self.createdAt <- Date()
+                self.createdAt <- date
             )
             try connection.run(insert)
         }
