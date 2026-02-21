@@ -167,7 +167,7 @@ final class ResponseCache: @unchecked Sendable {
     }
 
     /// Internal set for testing with specific timestamp
-    internal func set(
+    func set(
         key: String,
         response responseText: String,
         provider providerName: String,
