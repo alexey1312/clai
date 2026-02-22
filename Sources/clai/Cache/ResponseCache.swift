@@ -22,14 +22,12 @@ final class ResponseCache: @unchecked Sendable {
     /// Default TTL of 7 days
     private let ttlDays: Int = 7
 
-    /// Background task for database initialization
-    private var dbInitTask: Task<Void, Error>!
-
     init() throws {
         // Start database initialization in background on the serial queue
-        dbInitTask = Task { [weak self] in
+        // Fire and forget - public methods will retry init if this hasn't finished
+        Task { [weak self] in
             guard let self else { return }
-            try await _initDatabaseAndSet()
+            try? await _initDatabaseAndSet()
         }
 
         // Optimize startup: Run cleanup in background
@@ -45,6 +43,12 @@ final class ResponseCache: @unchecked Sendable {
     private func _initDatabaseAndSet() async throws {
         try await withCheckedThrowingContinuation { continuation in
             queue.async {
+                // If already initialized (e.g., by a faster get/set call), skip
+                if self._database != nil {
+                    continuation.resume()
+                    return
+                }
+
                 do {
                     let connection = try self._initDatabase()
                     self._database = connection
@@ -100,9 +104,7 @@ final class ResponseCache: @unchecked Sendable {
                     if let existing = self._database {
                         connection = existing
                     } else {
-                        // This should generally be handled by dbInitTask, but purely for safety
-                        // inside the queue to avoid race conditions if init failed or wasn't awaited properly
-                        // (though public methods await dbInitTask)
+                        // Database not initialized yet (lazy init or init task pending)
                         connection = try self._initDatabase()
                         self._database = connection
                     }
@@ -136,10 +138,7 @@ final class ResponseCache: @unchecked Sendable {
 
     /// Look up a cached response
     func get(key: String) async throws -> CachedResponse? {
-        // Ensure database is initialized
-        _ = try await dbInitTask.value
-
-        return try await withConnection { connection in
+        try await withConnection { connection in
             guard let expirationDate = Calendar.current.date(
                 byAdding: .day, value: -self.ttlDays, to: Date()
             ) else {
@@ -173,9 +172,6 @@ final class ResponseCache: @unchecked Sendable {
         provider providerName: String,
         createdAt date: Date
     ) async throws {
-        // Ensure database is initialized
-        _ = try await dbInitTask.value
-
         try await withConnection { connection in
             let insert = self.responses.insert(
                 or: .replace,
@@ -190,9 +186,6 @@ final class ResponseCache: @unchecked Sendable {
 
     /// Delete a cached response
     func delete(key: String) async throws {
-        // Ensure database is initialized
-        _ = try await dbInitTask.value
-
         try await withConnection { connection in
             try self.delete(key: key, connection: connection)
         }
@@ -206,9 +199,6 @@ final class ResponseCache: @unchecked Sendable {
 
     /// Clean up expired entries
     func cleanupExpired() async throws {
-        // Ensure database is initialized
-        _ = try await dbInitTask.value
-
         try await withConnection { connection in
             guard let expirationDate = Calendar.current.date(byAdding: .day, value: -self.ttlDays, to: Date()) else {
                 return // Cannot calculate expiration date, skip cleanup
@@ -220,9 +210,6 @@ final class ResponseCache: @unchecked Sendable {
 
     /// Clear all cached responses
     func clearAll() async throws {
-        // Ensure database is initialized
-        _ = try await dbInitTask.value
-
         try await withConnection { connection in
             try connection.run(self.responses.delete())
         }
@@ -230,10 +217,7 @@ final class ResponseCache: @unchecked Sendable {
 
     /// Get cache statistics
     func stats() async throws -> CacheStats {
-        // Ensure database is initialized
-        _ = try await dbInitTask.value
-
-        return try await withConnection { connection in
+        try await withConnection { connection in
             let count = try connection.scalar(self.responses.count)
             let databasePath = Self.cacheDirectory.appendingPathComponent("clai_cache.sqlite")
 
