@@ -12,16 +12,29 @@ extension Config {
         return configDir.appendingPathComponent("config.yaml")
     }
 
+    /// Cached configuration to avoid redundant I/O
+    private nonisolated(unsafe) static var _cachedConfig: Config?
+    private static let loadLock = NSLock()
+
     /// Load configuration from file (single source of truth)
     ///
     /// Flow:
-    /// 1. Create config file with defaults if it doesn't exist
-    /// 2. Load from file (the only source)
-    /// 3. Apply environment variable overrides
-    /// 4. Validate
+    /// 1. Check in-memory cache
+    /// 2. Create config file with defaults if it doesn't exist
+    /// 3. Load from file (the only source)
+    /// 4. Apply environment variable overrides
+    /// 5. Validate
+    /// 6. Cache and return
     ///
     /// - Throws: `ConfigError` on file/parsing errors, `ValidationError` on invalid values
     static func load() throws -> Config {
+        loadLock.lock()
+        defer { loadLock.unlock() }
+
+        if let cached = _cachedConfig {
+            return cached
+        }
+
         let fileURL = configFileURL
 
         // 1. Create file with defaults if it doesn't exist
@@ -38,6 +51,7 @@ extension Config {
         // 4. Validate
         try config.validate()
 
+        _cachedConfig = config
         return config
     }
 
@@ -271,5 +285,10 @@ extension Config {
         } catch {
             throw ConfigError.fileCreationFailed(path: fileURL.path, underlying: error)
         }
+
+        // Update cache
+        Config.loadLock.lock()
+        Config._cachedConfig = self
+        Config.loadLock.unlock()
     }
 }
