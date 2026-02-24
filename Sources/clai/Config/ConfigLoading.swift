@@ -4,6 +4,10 @@ import Yams
 // MARK: - Config Loading
 
 extension Config {
+    /// Cached configuration to avoid redundant disk I/O
+    private nonisolated(unsafe) static var _cachedConfig: Config?
+    private static let loadLock = NSLock()
+
     /// Config file location
     static var configFileURL: URL {
         let configDir = FileManager.default.homeDirectoryForCurrentUser
@@ -22,6 +26,13 @@ extension Config {
     ///
     /// - Throws: `ConfigError` on file/parsing errors, `ValidationError` on invalid values
     static func load() throws -> Config {
+        loadLock.lock()
+        defer { loadLock.unlock() }
+
+        if let cached = _cachedConfig {
+            return cached
+        }
+
         let fileURL = configFileURL
 
         // 1. Create file with defaults if it doesn't exist
@@ -38,6 +49,7 @@ extension Config {
         // 4. Validate
         try config.validate()
 
+        _cachedConfig = config
         return config
     }
 
@@ -271,5 +283,10 @@ extension Config {
         } catch {
             throw ConfigError.fileCreationFailed(path: fileURL.path, underlying: error)
         }
+
+        // Update cache with the saved configuration
+        Config.loadLock.lock()
+        Config._cachedConfig = self
+        Config.loadLock.unlock()
     }
 }
