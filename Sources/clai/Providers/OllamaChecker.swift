@@ -61,6 +61,19 @@ enum OllamaChecker {
             return result
         }
 
+        // Try to fetch models as a robust availability check
+        // This also pre-warms the model cache, avoiding a second request during instantiation
+        if let models = try? await fetchModelsDetailed(host: host) {
+            _cacheLock.withLock {
+                _cachedAvailability = AvailabilityCache(
+                    host: host, timestamp: Date(), isAvailable: true, models: models
+                )
+            }
+            return true
+        }
+
+        // Fallback: Basic check against root if /api/tags fails
+        // This handles cases where API might be restricted or behaves differently
         let isAvailable = await {
             guard let url = URL(string: "\(host)/") else {
                 return false
@@ -117,23 +130,8 @@ enum OllamaChecker {
             return models
         }
 
-        guard let url = URL(string: "\(host)/api/tags") else {
-            return []
-        }
-
         do {
-            let (data, _) = try await checkSession.data(from: url)
-            let response = try JSONDecoder().decode(OllamaTagsResponse.self, from: data)
-
-            let detailedModels: [OllamaModelInfo] = response.models.map { model in
-                let sizeBytes = Int64(model.size ?? 0)
-                return OllamaModelInfo(
-                    name: model.name,
-                    sizeBytes: sizeBytes,
-                    sizeFormatted: ByteFormatter.format(sizeBytes),
-                    digest: model.digest ?? ""
-                )
-            }
+            let detailedModels = try await fetchModelsDetailed(host: host)
 
             // Update cache with fresh models
             _cacheLock.withLock {
@@ -148,6 +146,31 @@ enum OllamaChecker {
                 fputs("OllamaChecker.availableModelsDetailed: \(error.localizedDescription)\n", stderr)
             #endif
             return []
+        }
+    }
+
+    /// Private helper to fetch models from API
+    private static func fetchModelsDetailed(host: String) async throws -> [OllamaModelInfo] {
+        guard let url = URL(string: "\(host)/api/tags") else {
+            throw OllamaError.invalidURL
+        }
+
+        let (data, response) = try await checkSession.data(from: url)
+
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw OllamaError.pullFailed("Status code not 200")
+        }
+
+        let decodedResponse = try JSONDecoder().decode(OllamaTagsResponse.self, from: data)
+
+        return decodedResponse.models.map { model in
+            let sizeBytes = Int64(model.size ?? 0)
+            return OllamaModelInfo(
+                name: model.name,
+                sizeBytes: sizeBytes,
+                sizeFormatted: ByteFormatter.format(sizeBytes),
+                digest: model.digest ?? ""
+            )
         }
     }
 
