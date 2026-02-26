@@ -39,8 +39,8 @@ enum OllamaChecker {
     // Dedicated session with short timeout for availability checks
     private static let checkSession: URLSession = {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 2.0 // Fail fast if unresponsive
-        config.timeoutIntervalForResource = 5.0
+        config.timeoutIntervalForRequest = 0.5 // Fail fast if unresponsive
+        config.timeoutIntervalForResource = 1.0
         return URLSession(configuration: config)
     }()
 
