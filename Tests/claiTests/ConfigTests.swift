@@ -6,6 +6,10 @@ import Yams
 
 @Suite("Configuration Tests")
 struct ConfigurationTests {
+    init() {
+        Config.clearCache()
+    }
+
     @Test("Config has valid defaults")
     func defaultConfig() {
         let config = Config.default

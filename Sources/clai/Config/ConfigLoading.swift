@@ -4,6 +4,9 @@ import Yams
 // MARK: - Config Loading
 
 extension Config {
+    private nonisolated(unsafe) static var _cachedConfig: Config?
+    private static let _cacheLock = NSLock()
+
     /// Config file location
     static var configFileURL: URL {
         let configDir = FileManager.default.homeDirectoryForCurrentUser
@@ -22,6 +25,15 @@ extension Config {
     ///
     /// - Throws: `ConfigError` on file/parsing errors, `ValidationError` on invalid values
     static func load() throws -> Config {
+        _cacheLock.lock()
+        if let cached = _cachedConfig {
+            _cacheLock.unlock()
+            var config = cached.applyingEnvironmentOverrides()
+            try config.validate()
+            return config
+        }
+        _cacheLock.unlock()
+
         let fileURL = configFileURL
 
         // 1. Create file with defaults if it doesn't exist
@@ -30,10 +42,14 @@ extension Config {
         }
 
         // 2. Load from file (single source of truth)
-        var config = try loadFromFile(at: fileURL)
+        let loadedConfig = try loadFromFile(at: fileURL)
+
+        _cacheLock.lock()
+        _cachedConfig = loadedConfig
+        _cacheLock.unlock()
 
         // 3. Apply environment variable overrides
-        config = config.applyingEnvironmentOverrides()
+        var config = loadedConfig.applyingEnvironmentOverrides()
 
         // 4. Validate
         try config.validate()
@@ -271,5 +287,19 @@ extension Config {
         } catch {
             throw ConfigError.fileCreationFailed(path: fileURL.path, underlying: error)
         }
+
+        Config._cacheLock.lock()
+        // The simplest and safest approach is to clear the cache upon saving,
+        // so the next `load()` will read the newly written configuration from
+        // disk, establishing a fresh baseline before environment overrides.
+        Config._cachedConfig = nil
+        Config._cacheLock.unlock()
+    }
+
+    /// Clear the configuration cache (useful for testing)
+    static func clearCache() {
+        _cacheLock.lock()
+        _cachedConfig = nil
+        _cacheLock.unlock()
     }
 }

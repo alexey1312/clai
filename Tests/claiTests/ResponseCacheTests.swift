@@ -1,6 +1,6 @@
 @testable import clai
-import XCTest
 import Crypto
+import XCTest
 
 final class ResponseCacheTests: XCTestCase {
     // Helper to generate a unique cache key
@@ -45,7 +45,10 @@ final class ResponseCacheTests: XCTestCase {
         let response = "Expired Response"
 
         // Exactly 7 days + 1 second ago
-        guard let oldDate = Calendar.current.date(byAdding: .second, value: -1, to:
+        guard let oldDate = Calendar.current.date(
+            byAdding: .second,
+            value: -1,
+            to:
             Calendar.current.date(byAdding: .day, value: -7, to: Date())!
         ) else {
             XCTFail("Could not calculate old date")
@@ -64,7 +67,10 @@ final class ResponseCacheTests: XCTestCase {
         let response = "Valid Response"
 
         // Exactly 7 days - 1 hour ago
-        guard let oldDate = Calendar.current.date(byAdding: .hour, value: 1, to:
+        guard let oldDate = Calendar.current.date(
+            byAdding: .hour,
+            value: 1,
+            to:
             Calendar.current.date(byAdding: .day, value: -7, to: Date())!
         ) else {
             XCTFail("Could not calculate old date")
