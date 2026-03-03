@@ -61,33 +61,57 @@ enum OllamaChecker {
             return result
         }
 
-        let isAvailable = await {
-            guard let url = URL(string: "\(host)/") else {
-                return false
+        let (isAvailable, models) = await {
+            // Try fetching models first to pre-cache them
+            guard let tagsUrl = URL(string: "\(host)/api/tags") else {
+                return (false, nil)
             }
 
             do {
-                let (_, response) = try await checkSession.data(from: url)
-                guard let httpResponse = response as? HTTPURLResponse else {
-                    return false
+                let (data, response) = try await checkSession.data(from: tagsUrl)
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                    let tagsResponse = try JSONDecoder().decode(OllamaTagsResponse.self, from: data)
+                    let detailedModels: [OllamaModelInfo] = tagsResponse.models.map { model in
+                        let sizeBytes = Int64(model.size ?? 0)
+                        return OllamaModelInfo(
+                            name: model.name,
+                            sizeBytes: sizeBytes,
+                            sizeFormatted: ByteFormatter.format(sizeBytes),
+                            digest: model.digest ?? ""
+                        )
+                    }
+                    return (true, detailedModels)
                 }
+            } catch {
+                // Ignore errors and try root endpoint below
+            }
 
-                return httpResponse.statusCode == 200
+            // Fallback to basic availability check if tags fetch fails
+            guard let rootUrl = URL(string: "\(host)/") else {
+                return (false, nil)
+            }
+
+            do {
+                let (_, response) = try await checkSession.data(from: rootUrl)
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    return (false, nil)
+                }
+                return (httpResponse.statusCode == 200, nil)
             } catch {
                 // Network errors are expected when Ollama isn't running
                 #if DEBUG
                     fputs("OllamaChecker: \(error.localizedDescription)\n", stderr)
                 #endif
-                return false
+                return (false, nil)
             }
         }()
 
         // Update cache
         _cacheLock.withLock {
-            // Preserve existing models if they belong to the same host
-            let existingModels = _cachedAvailability?.host == host ? _cachedAvailability?.models : nil
+            // Use fetched models, or preserve existing if they belong to the same host
+            let modelsToCache = models ?? (_cachedAvailability?.host == host ? _cachedAvailability?.models : nil)
             _cachedAvailability = AvailabilityCache(
-                host: host, timestamp: Date(), isAvailable: isAvailable, models: existingModels
+                host: host, timestamp: Date(), isAvailable: isAvailable, models: modelsToCache
             )
         }
 

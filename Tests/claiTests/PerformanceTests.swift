@@ -24,7 +24,7 @@ final class PerformanceTests: XCTestCase {
 
         // Measure time block
         measure {
-            for _ in 0..<iterations {
+            for _ in 0 ..< iterations {
                 _ = ByteFormatter.format(bytes)
             }
         }
