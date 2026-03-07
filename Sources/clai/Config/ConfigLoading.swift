@@ -12,33 +12,60 @@ extension Config {
         return configDir.appendingPathComponent("config.yaml")
     }
 
+    private nonisolated(unsafe) static var _cachedConfig: Config?
+    private static let _cacheLock = NSLock()
+
+    /// Clear the cached configuration (used primarily for testing)
+    static func clearCache() {
+        _cacheLock.lock()
+        defer { _cacheLock.unlock() }
+        _cachedConfig = nil
+    }
+
     /// Load configuration from file (single source of truth)
     ///
     /// Flow:
-    /// 1. Create config file with defaults if it doesn't exist
-    /// 2. Load from file (the only source)
-    /// 3. Apply environment variable overrides
-    /// 4. Validate
+    /// 1. Return cached config if available (with fresh environment overrides)
+    /// 2. Create config file with defaults if it doesn't exist
+    /// 3. Load from file (the only source)
+    /// 4. Cache base config
+    /// 5. Apply environment variable overrides
+    /// 6. Validate final config
     ///
     /// - Throws: `ConfigError` on file/parsing errors, `ValidationError` on invalid values
     static func load() throws -> Config {
+        // 1. Return cached config if available
+        _cacheLock.lock()
+        if let cached = _cachedConfig {
+            _cacheLock.unlock()
+            let overridden = cached.applyingEnvironmentOverrides()
+            try overridden.validate()
+            return overridden
+        }
+        _cacheLock.unlock()
+
         let fileURL = configFileURL
 
-        // 1. Create file with defaults if it doesn't exist
+        // 2. Create file with defaults if it doesn't exist
         if !FileManager.default.fileExists(atPath: fileURL.path) {
             try createDefaultConfigFile(at: fileURL)
         }
 
-        // 2. Load from file (single source of truth)
-        var config = try loadFromFile(at: fileURL)
+        // 3. Load from file (single source of truth)
+        let config = try loadFromFile(at: fileURL)
 
-        // 3. Apply environment variable overrides
-        config = config.applyingEnvironmentOverrides()
+        // 4. Cache base config
+        _cacheLock.lock()
+        _cachedConfig = config
+        _cacheLock.unlock()
 
-        // 4. Validate
-        try config.validate()
+        // 5. Apply environment variable overrides
+        let overriddenConfig = config.applyingEnvironmentOverrides()
 
-        return config
+        // 6. Validate final config
+        try overriddenConfig.validate()
+
+        return overriddenConfig
     }
 
     /// Create default config file with documentation comments
@@ -268,6 +295,11 @@ extension Config {
 
         do {
             try yamlString.write(to: fileURL, atomically: true, encoding: .utf8)
+
+            // Update cache after successful save (without env overrides)
+            Config._cacheLock.lock()
+            Config._cachedConfig = self
+            Config._cacheLock.unlock()
         } catch {
             throw ConfigError.fileCreationFailed(path: fileURL.path, underlying: error)
         }

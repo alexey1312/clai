@@ -6,6 +6,10 @@ import Yams
 
 @Suite("Configuration Tests")
 struct ConfigurationTests {
+    init() {
+        Config.clearCache()
+    }
+
     @Test("Config has valid defaults")
     func defaultConfig() {
         let config = Config.default
@@ -57,6 +61,10 @@ struct ConfigurationTests {
 
 @Suite("ConfigError Tests")
 struct ConfigErrorTests {
+    init() {
+        Config.clearCache()
+    }
+
     @Test("ConfigError.yamlParsingFailed has descriptive message with snippet")
     func yamlParsingErrorWithSnippet() {
         let error = ConfigError.yamlParsingFailed(
