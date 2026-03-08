@@ -4,6 +4,17 @@ import Yams
 // MARK: - Config Loading
 
 extension Config {
+    /// Cached configuration to avoid multiple filesystem reads
+    private nonisolated(unsafe) static var _cachedConfig: Config?
+    private nonisolated(unsafe) static let _cacheLock = NSLock()
+
+    /// Clear the cached configuration (used primarily for testing)
+    static func clearCache() {
+        _cacheLock.lock()
+        defer { _cacheLock.unlock() }
+        _cachedConfig = nil
+    }
+
     /// Config file location
     static var configFileURL: URL {
         let configDir = FileManager.default.homeDirectoryForCurrentUser
@@ -22,6 +33,17 @@ extension Config {
     ///
     /// - Throws: `ConfigError` on file/parsing errors, `ValidationError` on invalid values
     static func load() throws -> Config {
+        _cacheLock.lock()
+        if let cached = _cachedConfig {
+            _cacheLock.unlock()
+            // Always apply environment overrides to the cached version
+            // so ENV changes take effect without needing to clear cache
+            let finalConfig = cached.applyingEnvironmentOverrides()
+            try finalConfig.validate()
+            return finalConfig
+        }
+        _cacheLock.unlock()
+
         let fileURL = configFileURL
 
         // 1. Create file with defaults if it doesn't exist
@@ -32,10 +54,15 @@ extension Config {
         // 2. Load from file (single source of truth)
         var config = try loadFromFile(at: fileURL)
 
-        // 3. Apply environment variable overrides
+        // 3. Cache the base configuration (without overrides)
+        _cacheLock.lock()
+        _cachedConfig = config
+        _cacheLock.unlock()
+
+        // 4. Apply environment overrides
         config = config.applyingEnvironmentOverrides()
 
-        // 4. Validate
+        // 5. Validate final configuration
         try config.validate()
 
         return config
@@ -271,5 +298,10 @@ extension Config {
         } catch {
             throw ConfigError.fileCreationFailed(path: fileURL.path, underlying: error)
         }
+
+        // Update base cache (without environment overrides applied again)
+        _cacheLock.lock()
+        _cachedConfig = try? Config.loadFromFile(at: fileURL)
+        _cacheLock.unlock()
     }
 }
