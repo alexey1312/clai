@@ -4,6 +4,16 @@ import Yams
 // MARK: - Config Loading
 
 extension Config {
+    private nonisolated(unsafe) static var _cachedConfig: Config?
+    private static let _cacheLock = NSLock()
+
+    /// Clear the cached configuration
+    static func clearCache() {
+        _cacheLock.lock()
+        defer { _cacheLock.unlock() }
+        _cachedConfig = nil
+    }
+
     /// Config file location
     static var configFileURL: URL {
         let configDir = FileManager.default.homeDirectoryForCurrentUser
@@ -22,6 +32,15 @@ extension Config {
     ///
     /// - Throws: `ConfigError` on file/parsing errors, `ValidationError` on invalid values
     static func load() throws -> Config {
+        _cacheLock.lock()
+        if let cached = _cachedConfig {
+            _cacheLock.unlock()
+            var config = cached.applyingEnvironmentOverrides()
+            try config.validate()
+            return config
+        }
+        _cacheLock.unlock()
+
         let fileURL = configFileURL
 
         // 1. Create file with defaults if it doesn't exist
@@ -31,6 +50,10 @@ extension Config {
 
         // 2. Load from file (single source of truth)
         var config = try loadFromFile(at: fileURL)
+
+        _cacheLock.lock()
+        _cachedConfig = config
+        _cacheLock.unlock()
 
         // 3. Apply environment variable overrides
         config = config.applyingEnvironmentOverrides()
@@ -268,6 +291,11 @@ extension Config {
 
         do {
             try yamlString.write(to: fileURL, atomically: true, encoding: .utf8)
+
+            // Invalidate cache so next load() re-reads from disk without environment overrides applied
+            _cacheLock.lock()
+            _cachedConfig = nil
+            _cacheLock.unlock()
         } catch {
             throw ConfigError.fileCreationFailed(path: fileURL.path, underlying: error)
         }

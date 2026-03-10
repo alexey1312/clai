@@ -4,8 +4,12 @@ import Yams
 
 @testable import clai
 
-@Suite("Configuration Tests")
+@Suite("Configuration Tests", .serialized)
 struct ConfigurationTests {
+    init() {
+        Config.clearCache()
+    }
+
     @Test("Config has valid defaults")
     func defaultConfig() {
         let config = Config.default
@@ -55,8 +59,12 @@ struct ConfigurationTests {
     }
 }
 
-@Suite("ConfigError Tests")
+@Suite("ConfigError Tests", .serialized)
 struct ConfigErrorTests {
+    init() {
+        Config.clearCache()
+    }
+
     @Test("ConfigError.yamlParsingFailed has descriptive message with snippet")
     func yamlParsingErrorWithSnippet() {
         let error = ConfigError.yamlParsingFailed(
