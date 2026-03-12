@@ -4,6 +4,16 @@ import Yams
 // MARK: - Config Loading
 
 extension Config {
+    private nonisolated(unsafe) static var _cachedConfig: Config?
+    private static let _cacheLock = NSLock()
+
+    /// Clear the cached configuration (useful for testing)
+    static func clearCache() {
+        _cacheLock.withLock {
+            _cachedConfig = nil
+        }
+    }
+
     /// Config file location
     static var configFileURL: URL {
         let configDir = FileManager.default.homeDirectoryForCurrentUser
@@ -22,23 +32,36 @@ extension Config {
     ///
     /// - Throws: `ConfigError` on file/parsing errors, `ValidationError` on invalid values
     static func load() throws -> Config {
+        // 1. Check cache first
+        let cached = _cacheLock.withLock { _cachedConfig }
+        if let config = cached {
+            var overriddenConfig = config.applyingEnvironmentOverrides()
+            try overriddenConfig.validate()
+            return overriddenConfig
+        }
+
         let fileURL = configFileURL
 
-        // 1. Create file with defaults if it doesn't exist
+        // 2. Create file with defaults if it doesn't exist
         if !FileManager.default.fileExists(atPath: fileURL.path) {
             try createDefaultConfigFile(at: fileURL)
         }
 
-        // 2. Load from file (single source of truth)
-        var config = try loadFromFile(at: fileURL)
+        // 3. Load from file (single source of truth)
+        let config = try loadFromFile(at: fileURL)
 
-        // 3. Apply environment variable overrides
-        config = config.applyingEnvironmentOverrides()
+        // 4. Update cache
+        _cacheLock.withLock {
+            _cachedConfig = config
+        }
 
-        // 4. Validate
-        try config.validate()
+        // 5. Apply environment variable overrides
+        var overriddenConfig = config.applyingEnvironmentOverrides()
 
-        return config
+        // 6. Validate
+        try overriddenConfig.validate()
+
+        return overriddenConfig
     }
 
     /// Create default config file with documentation comments
@@ -247,6 +270,8 @@ extension Config {
 
     /// Save configuration to file
     func save() throws {
+        Config.clearCache()
+
         let fileURL = Config.configFileURL
         let configDir = fileURL.deletingLastPathComponent()
 
