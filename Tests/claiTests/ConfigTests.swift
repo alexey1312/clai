@@ -4,8 +4,12 @@ import Yams
 
 @testable import clai
 
-@Suite("Configuration Tests")
+@Suite("Configuration Tests", .serialized)
 struct ConfigurationTests {
+    init() {
+        Config.clearCache()
+    }
+
     @Test("Config has valid defaults")
     func defaultConfig() {
         let config = Config.default

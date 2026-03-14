@@ -12,28 +12,54 @@ extension Config {
         return configDir.appendingPathComponent("config.yaml")
     }
 
+    private nonisolated(unsafe) static var _cachedConfig: Config?
+    private static let lock = NSLock()
+
+    /// Clear the cached configuration (primarily for testing)
+    static func clearCache() {
+        lock.lock()
+        defer { lock.unlock() }
+        _cachedConfig = nil
+    }
+
     /// Load configuration from file (single source of truth)
     ///
     /// Flow:
-    /// 1. Create config file with defaults if it doesn't exist
-    /// 2. Load from file (the only source)
-    /// 3. Apply environment variable overrides
-    /// 4. Validate
+    /// 1. Check cache for parsed config
+    /// 2. If not cached, create config file with defaults if it doesn't exist
+    /// 3. Load from file and cache it
+    /// 4. Apply environment variable overrides (done fresh each time)
+    /// 5. Validate
     ///
     /// - Throws: `ConfigError` on file/parsing errors, `ValidationError` on invalid values
     static func load() throws -> Config {
-        let fileURL = configFileURL
+        let parsedConfig: Config
 
-        // 1. Create file with defaults if it doesn't exist
-        if !FileManager.default.fileExists(atPath: fileURL.path) {
-            try createDefaultConfigFile(at: fileURL)
+        lock.lock()
+        if let cached = _cachedConfig {
+            parsedConfig = cached
+            lock.unlock()
+        } else {
+            lock.unlock()
+
+            let fileURL = configFileURL
+
+            // 1. Create file with defaults if it doesn't exist
+            if !FileManager.default.fileExists(atPath: fileURL.path) {
+                try createDefaultConfigFile(at: fileURL)
+            }
+
+            // 2. Load from file (single source of truth)
+            let loadedConfig = try loadFromFile(at: fileURL)
+
+            lock.lock()
+            _cachedConfig = loadedConfig
+            parsedConfig = loadedConfig
+            lock.unlock()
         }
 
-        // 2. Load from file (single source of truth)
-        var config = try loadFromFile(at: fileURL)
-
         // 3. Apply environment variable overrides
-        config = config.applyingEnvironmentOverrides()
+        var config = parsedConfig.applyingEnvironmentOverrides()
 
         // 4. Validate
         try config.validate()
@@ -247,6 +273,8 @@ extension Config {
 
     /// Save configuration to file
     func save() throws {
+        Config.clearCache()
+
         let fileURL = Config.configFileURL
         let configDir = fileURL.deletingLastPathComponent()
 
