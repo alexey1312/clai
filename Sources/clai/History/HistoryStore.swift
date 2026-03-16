@@ -168,27 +168,29 @@ final class HistoryStore: @unchecked Sendable {
         var inserted = 0
         var updated = 0
 
-        for entry in entries {
-            // Check if command already exists
-            let existing = commands.filter(command == entry.command && shell == entry.shell.rawValue)
+        try database.transaction {
+            for entry in entries {
+                // Check if command already exists
+                let existing = commands.filter(command == entry.command && shell == entry.shell.rawValue)
 
-            if let row = try database.pluck(existing) {
-                // Update frequency
-                let currentFrequency = row[frequency]
-                try database.run(existing.update(frequency <- currentFrequency + 1))
-                updated += 1
-            } else {
-                // Insert new entry
-                let insert = commands.insert(
-                    command <- entry.command,
-                    timestamp <- entry.timestamp.map { Int64($0.timeIntervalSince1970) },
-                    workingDir <- entry.workingDirectory,
-                    shell <- entry.shell.rawValue,
-                    frequency <- entry.frequency,
-                    indexedAt <- Date()
-                )
-                try database.run(insert)
-                inserted += 1
+                if let row = try database.pluck(existing) {
+                    // Update frequency
+                    let currentFrequency = row[frequency]
+                    try database.run(existing.update(frequency <- currentFrequency + 1))
+                    updated += 1
+                } else {
+                    // Insert new entry
+                    let insert = commands.insert(
+                        command <- entry.command,
+                        timestamp <- entry.timestamp.map { Int64($0.timeIntervalSince1970) },
+                        workingDir <- entry.workingDirectory,
+                        shell <- entry.shell.rawValue,
+                        frequency <- entry.frequency,
+                        indexedAt <- Date()
+                    )
+                    try database.run(insert)
+                    inserted += 1
+                }
             }
         }
 
