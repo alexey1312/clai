@@ -4,6 +4,16 @@ import Yams
 // MARK: - Config Loading
 
 extension Config {
+    private nonisolated(unsafe) static var _cachedConfig: Config?
+    private nonisolated(unsafe) static let _cacheLock = NSLock()
+
+    /// Clear the configuration cache (used primarily for testing)
+    static func clearCache() {
+        _cacheLock.lock()
+        defer { _cacheLock.unlock() }
+        _cachedConfig = nil
+    }
+
     /// Config file location
     static var configFileURL: URL {
         let configDir = FileManager.default.homeDirectoryForCurrentUser
@@ -22,15 +32,28 @@ extension Config {
     ///
     /// - Throws: `ConfigError` on file/parsing errors, `ValidationError` on invalid values
     static func load() throws -> Config {
-        let fileURL = configFileURL
+        _cacheLock.lock()
+        let cached = _cachedConfig
+        _cacheLock.unlock()
 
-        // 1. Create file with defaults if it doesn't exist
-        if !FileManager.default.fileExists(atPath: fileURL.path) {
-            try createDefaultConfigFile(at: fileURL)
+        var config: Config
+        if let cachedConfig = cached {
+            config = cachedConfig
+        } else {
+            let fileURL = configFileURL
+
+            // 1. Create file with defaults if it doesn't exist
+            if !FileManager.default.fileExists(atPath: fileURL.path) {
+                try createDefaultConfigFile(at: fileURL)
+            }
+
+            // 2. Load from file (single source of truth)
+            config = try loadFromFile(at: fileURL)
+
+            _cacheLock.lock()
+            _cachedConfig = config
+            _cacheLock.unlock()
         }
-
-        // 2. Load from file (single source of truth)
-        var config = try loadFromFile(at: fileURL)
 
         // 3. Apply environment variable overrides
         config = config.applyingEnvironmentOverrides()
@@ -271,5 +294,8 @@ extension Config {
         } catch {
             throw ConfigError.fileCreationFailed(path: fileURL.path, underlying: error)
         }
+
+        // Invalidate cache since we wrote a new version to disk
+        Self.clearCache()
     }
 }
