@@ -4,6 +4,16 @@ import Yams
 // MARK: - Config Loading
 
 extension Config {
+    private nonisolated(unsafe) static var _cachedConfig: Config?
+    private static let lock = NSLock()
+
+    /// Clear the parsed configuration cache. Useful for testing.
+    static func clearCache() {
+        lock.lock()
+        defer { lock.unlock() }
+        _cachedConfig = nil
+    }
+
     /// Config file location
     static var configFileURL: URL {
         let configDir = FileManager.default.homeDirectoryForCurrentUser
@@ -22,15 +32,28 @@ extension Config {
     ///
     /// - Throws: `ConfigError` on file/parsing errors, `ValidationError` on invalid values
     static func load() throws -> Config {
-        let fileURL = configFileURL
+        lock.lock()
+        let cached = _cachedConfig
+        lock.unlock()
 
-        // 1. Create file with defaults if it doesn't exist
-        if !FileManager.default.fileExists(atPath: fileURL.path) {
-            try createDefaultConfigFile(at: fileURL)
+        var config: Config
+        if let cached {
+            config = cached
+        } else {
+            let fileURL = configFileURL
+
+            // 1. Create file with defaults if it doesn't exist
+            if !FileManager.default.fileExists(atPath: fileURL.path) {
+                try createDefaultConfigFile(at: fileURL)
+            }
+
+            // 2. Load from file (single source of truth)
+            config = try loadFromFile(at: fileURL)
+
+            lock.lock()
+            _cachedConfig = config
+            lock.unlock()
         }
-
-        // 2. Load from file (single source of truth)
-        var config = try loadFromFile(at: fileURL)
 
         // 3. Apply environment variable overrides
         config = config.applyingEnvironmentOverrides()
@@ -247,6 +270,8 @@ extension Config {
 
     /// Save configuration to file
     func save() throws {
+        Config.clearCache()
+
         let fileURL = Config.configFileURL
         let configDir = fileURL.deletingLastPathComponent()
 

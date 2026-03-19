@@ -1,6 +1,6 @@
 @testable import clai
-import XCTest
 import Crypto
+import XCTest
 
 final class CachePerfTests: XCTestCase {
     // Helper to generate a unique cache key
@@ -22,7 +22,7 @@ final class CachePerfTests: XCTestCase {
         let start = Date()
 
         await withTaskGroup(of: Void.self) { group in
-            for i in 0..<concurrentOps {
+            for i in 0 ..< concurrentOps {
                 group.addTask {
                     let key = CachePerfTests.uniqueKey(i)
                     let response = "Response for \(i)"
@@ -46,7 +46,7 @@ final class CachePerfTests: XCTestCase {
         let readStart = Date()
 
         await withTaskGroup(of: Void.self) { group in
-            for i in 0..<concurrentOps {
+            for i in 0 ..< concurrentOps {
                 group.addTask {
                     let key = CachePerfTests.uniqueKey(i)
                     do {
