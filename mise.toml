@@ -50,8 +50,8 @@ run = "swiftformat Sources"
 description = "Check formatting (CI)"
 run = "swiftformat Sources --lint"
 
-[hooks.enter]
-run = "git config core.hooksPath .githooks 2>/dev/null || true"
+[hooks]
+enter = "git config core.hooksPath .githooks 2>/dev/null || true"
 
 [tasks.setup]
 description = "Configure git hooks"
